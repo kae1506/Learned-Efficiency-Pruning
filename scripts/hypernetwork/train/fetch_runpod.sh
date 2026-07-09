@@ -5,8 +5,8 @@ POD_PORT=22222            # SSH port shown in RunPod console (usually 10000-rang
 KEY_PATH="$HOME/.ssh/id_rsa"
 # ─────────────────────────────────────────────────────────────────────────────
 
-REMOTE_DIR="/workspace/lep/experiments/latest/hypernetwork/gpt2_lambda_sweep"
-LOCAL_DIR="./experiments/latest/hypernetwork/gpt2_lambda_sweep"
+REMOTE_DIR="/workspace/results/gpt2_lambda_sweep"
+LOCAL_DIR="./experiments/runpod_results/gpt2_lambda_sweep"
 
 mkdir -p "$LOCAL_DIR"
 

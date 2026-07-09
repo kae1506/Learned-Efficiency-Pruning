@@ -1,0 +1,21 @@
+# CIFAR-10 Mid base-model training config.
+# Architecture: scaled-down CIFAR_big (3 conv blocks 32/64/128 + 4 FC 512/128/64/10), ~1.22M params.
+# Sits between LeNet (63K) and CIFAR_big (10.4M) for the H2 / λ_opt scaling study.
+
+data:
+  data_dir: ./data
+  batch_size: 256
+  num_workers: 2
+
+model:
+  arch: mid                # lenet | mid | big
+  output_dim: 10
+
+training:
+  epochs: 40
+  lr: 0.001
+  weight_decay: 0.0005
+  augment: true
+  momentum: 0.9            # unused (AdamW)
+
+device: mps

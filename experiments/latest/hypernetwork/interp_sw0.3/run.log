@@ -1,0 +1,47 @@
+Device: cpu
+
+Base model: MLP 784 -> 1024 -> 1024 -> 10
+Prunable layers: [(1024, 784), (1024, 1024)]
+Sparsity weight: 0.3  |  Steps: 1000
+
+  step  100 | loss +0.2971  pruned_acc 0.9531  avg_gate 0.3223  % pruned 67.77
+  step  200 | loss +0.1630  pruned_acc 1.0000  avg_gate 0.3198  % pruned 68.02
+  step  300 | loss +0.1993  pruned_acc 0.9844  avg_gate 0.2744  % pruned 72.56
+  step  400 | loss +0.1730  pruned_acc 0.9844  avg_gate 0.2642  % pruned 73.58
+  step  500 | loss +0.2174  pruned_acc 0.9688  avg_gate 0.2573  % pruned 74.27
+  step  600 | loss +0.2490  pruned_acc 0.9219  avg_gate 0.2500  % pruned 75.00
+  step  700 | loss +0.1592  pruned_acc 0.9688  avg_gate 0.2471  % pruned 75.29
+  step  800 | loss +0.1510  pruned_acc 1.0000  avg_gate 0.2437  % pruned 75.63
+  step  900 | loss +0.2162  pruned_acc 0.9531  avg_gate 0.2427  % pruned 75.73
+  step 1000 | loss +0.1860  pruned_acc 0.9844  avg_gate 0.2417  % pruned 75.83
+Saved training curves to experiments/latest/bilstm_interp/training_curves.png
+
+Running interpretability analysis...
+
+================================================================
+PRUNER INTERPRETABILITY REPORT
+================================================================
+  Total hidden neurons     : 2048
+  Kept                     : 495 (24.17%)
+  Pruned                   : 1553 (75.83%)
+
+  Per-layer breakdown
+   Layer |   Total |    Kept |  Pruned |  % Pruned
+  ----------------------------------------------------------
+       1 |    1024 |     217 |     807 |    78.81%
+       2 |    1024 |     278 |     746 |    72.85%
+
+  Mean post-ReLU activation (under ORIGINAL, un-pruned model)
+   Layer |     Kept (alive) |    Pruned (dead) |   Ratio dead/alive
+  ----------------------------------------------------------------
+       1 |           0.5279 |           0.1416 |              0.268
+       2 |           1.0370 |           0.3771 |              0.364
+
+  Overall mean activation — alive : 0.8138
+  Overall mean activation — dead  : 0.2547
+  Ratio (dead / alive)            : 0.313
+  Interpretation                  : pruner partially correlates with activation magnitude
+================================================================
+
+Saved interpretability plot to experiments/latest/bilstm_interp/interp.png
+Saved summary to experiments/latest/bilstm_interp/summary.txt

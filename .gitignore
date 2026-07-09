@@ -1,0 +1,7 @@
+venv/
+data/
+experiments/checkpoints/*.pt
+.claude/
+__pycache__/
+*.pyc
+.DS_Store

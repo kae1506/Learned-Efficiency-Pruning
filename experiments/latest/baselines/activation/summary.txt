@@ -1,0 +1,27 @@
+============================================================
+ACTIVATION PRUNING SUMMARY
+Date: 2026-03-13 23:45:04
+============================================================
+
+ALGORITHM
+  For each hidden neuron, compute its mean post-ReLU activation
+  over 5 calibration batches of training data.
+  Shut off any neuron with mean activation < lambda=0.5
+  by zeroing its incoming weight row and bias.
+
+BASE MODEL
+  Architecture : MLP 784 -> 1024 -> 1024 -> 10
+  Checkpoint   : experiments/mnist_model.pt
+
+RESULTS
+  Calibration batches : 5
+  Evaluation batches  : 5
+  Lambda (threshold)  : 0.5
+  Baseline accuracy   : 97.97%
+  Pruned accuracy     : 87.34%
+  Accuracy drop       : 10.63%
+  Neurons pruned      : 1203 / 2048 (58.7%)
+    Layer 1: 864/1024 (84.4%)
+    Layer 2: 547/1024 (53.4%)
+
+============================================================

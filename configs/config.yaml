@@ -1,0 +1,20 @@
+data:
+  data_dir: ./data
+  batch_size: 128
+  num_workers: 2
+
+model:
+  input_dim: 784
+  hidden_dims: [1024, 1024]
+  output_dim: 10
+  dropout: 0.1
+
+training:
+  epochs: 10
+  lr: 0.001
+
+pruner:
+  steps: 1000
+  samples_per_step: 64
+  lr: 0.001
+  sparsity_weight: 0.3

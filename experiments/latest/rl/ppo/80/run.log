@@ -1,0 +1,49 @@
+Device: cpu  |  PPO  |  max_prune=0.80  |  tag=80
+Total hidden neurons: 2048  (target: prune 1638)
+Orig acc on eval batch: 99.61%
+  ep    1 | return=-0.1250 | final_acc=87.11% | drop=12.50% | frac_pruned=80.5% | loss=-0.0463 | v_loss=0.0001 | ent=7.002
+  ep   10 | return=-0.5781 | final_acc=41.80% | drop=57.81% | frac_pruned=80.5% | loss=-0.0639 | v_loss=0.0008 | ent=6.948
+  ep   20 | return=-0.1914 | final_acc=80.47% | drop=19.14% | frac_pruned=80.5% | loss=-0.0884 | v_loss=0.0001 | ent=6.955
+    [greedy] final_acc=7.42% | frac_pruned=80.5%
+  ep   30 | return=-0.2031 | final_acc=79.30% | drop=20.31% | frac_pruned=80.5% | loss=-0.0859 | v_loss=0.0001 | ent=6.985
+  ep   40 | return=-0.5859 | final_acc=41.02% | drop=58.59% | frac_pruned=80.5% | loss=+0.0240 | v_loss=0.0010 | ent=6.890
+  ep   50 | return=-0.4805 | final_acc=51.56% | drop=48.05% | frac_pruned=80.5% | loss=-0.0400 | v_loss=0.0004 | ent=6.916
+    [greedy] final_acc=5.47% | frac_pruned=80.5%
+  ep   60 | return=-0.6172 | final_acc=37.89% | drop=61.72% | frac_pruned=80.5% | loss=-0.0966 | v_loss=0.0007 | ent=6.757
+  ep   70 | return=-0.2539 | final_acc=74.22% | drop=25.39% | frac_pruned=80.5% | loss=-0.1373 | v_loss=0.0001 | ent=6.901
+    [greedy] final_acc=5.47% | frac_pruned=80.5%
+  ep   80 | return=-0.1797 | final_acc=81.64% | drop=17.97% | frac_pruned=80.5% | loss=-0.1003 | v_loss=0.0006 | ent=6.728
+  ep   90 | return=-0.3867 | final_acc=60.94% | drop=38.67% | frac_pruned=80.5% | loss=-0.0921 | v_loss=0.0001 | ent=6.825
+  ep  100 | return=-0.2617 | final_acc=73.44% | drop=26.17% | frac_pruned=80.5% | loss=-0.0695 | v_loss=0.0001 | ent=6.899
+    [greedy] final_acc=70.70% | frac_pruned=80.5%
+  ep  110 | return=-0.3789 | final_acc=61.72% | drop=37.89% | frac_pruned=80.5% | loss=-0.0192 | v_loss=0.0001 | ent=6.695
+  ep  120 | return=-0.8008 | final_acc=19.53% | drop=80.08% | frac_pruned=80.5% | loss=-0.0255 | v_loss=0.0013 | ent=6.732
+    [greedy] final_acc=6.25% | frac_pruned=80.5%
+  ep  130 | return=-0.2852 | final_acc=71.09% | drop=28.52% | frac_pruned=80.5% | loss=-0.0730 | v_loss=0.0001 | ent=6.747
+  ep  140 | return=-0.4961 | final_acc=50.00% | drop=49.61% | frac_pruned=80.5% | loss=-0.0864 | v_loss=0.0003 | ent=6.711
+  ep  150 | return=-0.6406 | final_acc=35.55% | drop=64.06% | frac_pruned=80.5% | loss=-0.1045 | v_loss=0.0003 | ent=6.826
+    [greedy] final_acc=34.38% | frac_pruned=80.5%
+  ep  160 | return=-0.3516 | final_acc=64.45% | drop=35.16% | frac_pruned=80.5% | loss=-0.0921 | v_loss=0.0007 | ent=6.925
+  ep  170 | return=-0.2578 | final_acc=73.83% | drop=25.78% | frac_pruned=80.5% | loss=-0.0911 | v_loss=0.0004 | ent=6.887
+    [greedy] final_acc=32.81% | frac_pruned=80.5%
+  ep  180 | return=-0.6133 | final_acc=38.28% | drop=61.33% | frac_pruned=80.5% | loss=-0.0856 | v_loss=0.0002 | ent=6.794
+  ep  190 | return=-0.3867 | final_acc=60.94% | drop=38.67% | frac_pruned=80.5% | loss=-0.0493 | v_loss=0.0000 | ent=6.685
+  ep  200 | return=-0.2539 | final_acc=74.22% | drop=25.39% | frac_pruned=80.5% | loss=-0.0601 | v_loss=0.0000 | ent=6.746
+    [greedy] final_acc=82.81% | frac_pruned=80.5%
+  ep  210 | return=-0.2617 | final_acc=73.44% | drop=26.17% | frac_pruned=80.5% | loss=-0.0919 | v_loss=0.0001 | ent=6.781
+  ep  220 | return=-0.2461 | final_acc=75.00% | drop=24.61% | frac_pruned=80.5% | loss=-0.0747 | v_loss=0.0001 | ent=6.766
+    [greedy] final_acc=89.06% | frac_pruned=80.5%
+  ep  230 | return=-0.1992 | final_acc=79.69% | drop=19.92% | frac_pruned=80.5% | loss=-0.0965 | v_loss=0.0001 | ent=6.766
+  ep  240 | return=-0.1797 | final_acc=81.64% | drop=17.97% | frac_pruned=80.5% | loss=-0.0769 | v_loss=0.0002 | ent=6.761
+  ep  250 | return=-0.1406 | final_acc=85.55% | drop=14.06% | frac_pruned=80.5% | loss=-0.0397 | v_loss=0.0001 | ent=6.614
+    [greedy] final_acc=85.55% | frac_pruned=80.5%
+  ep  260 | return=-0.2656 | final_acc=73.05% | drop=26.56% | frac_pruned=80.5% | loss=-0.0931 | v_loss=0.0000 | ent=6.618
+  ep  270 | return=-0.3906 | final_acc=60.55% | drop=39.06% | frac_pruned=80.5% | loss=-0.0777 | v_loss=0.0001 | ent=6.662
+    [greedy] final_acc=87.11% | frac_pruned=80.5%
+  ep  280 | return=-0.2773 | final_acc=71.88% | drop=27.73% | frac_pruned=80.5% | loss=-0.0322 | v_loss=0.0001 | ent=6.779
+  ep  290 | return=-0.5977 | final_acc=39.84% | drop=59.77% | frac_pruned=80.5% | loss=-0.0983 | v_loss=0.0003 | ent=6.713
+  ep  300 | return=-0.4609 | final_acc=53.52% | drop=46.09% | frac_pruned=80.5% | loss=-0.0414 | v_loss=0.0001 | ent=6.557
+    [greedy] final_acc=16.80% | frac_pruned=80.5%
+
+Saved plot to experiments/latest/rl_ppo/80/plot.png
+Saved summary to experiments/latest/rl_ppo/80/summary.txt

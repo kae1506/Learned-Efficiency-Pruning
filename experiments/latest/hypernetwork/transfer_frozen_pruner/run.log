@@ -1,0 +1,45 @@
+Device: cpu
+
+=== Model A (existing checkpoint) + pruner P_A ===
+  P_A -> A (in-distribution): pruned=79.00%  drop=3.19pp  ratio=0.311
+
+=== Model B (seed 1) ===
+  trained B: test acc 97.98%
+  TRANSFER P_A -> B1: pruned=86.08%  drop=14.83pp  ratio=0.418
+  ORACLE   P_B1 -> B1: pruned=80.37%  drop=4.43pp  ratio=0.283
+
+=== Model B (seed 2) ===
+  trained B: test acc 97.94%
+  TRANSFER P_A -> B2: pruned=84.38%  drop=28.70pp  ratio=0.420
+  ORACLE   P_B2 -> B2: pruned=79.83%  drop=3.33pp  ratio=0.285
+
+=== Model B (seed 3) ===
+  trained B: test acc 97.77%
+  TRANSFER P_A -> B3: pruned=86.67%  drop=40.34pp  ratio=0.399
+  ORACLE   P_B3 -> B3: pruned=80.37%  drop=4.35pp  ratio=0.289
+
+============================================================================
+FROZEN-PRUNER TRANSFER TEST — BiLSTM, all models 784->1024->1024->10
+Date: 2026-06-02 16:35:16
+============================================================================
+
+Pruner P_A trained on model A (sw=0.5, 1000 steps), then
+applied FROZEN to fresh models B (seeds [1, 2, 3]) with NO retraining.
+
+IN-DISTRIBUTION  P_A -> A : pruned=79.00%  drop=3.19pp  ratio=0.311
+
+seed |      cond |  % Pruned |  Drop pp |   Ratio
+----------------------------------------------------------------------------
+   1 |  TRANSFER |    86.08% |   14.83  |   0.418
+   2 |  TRANSFER |    84.38% |   28.70  |   0.420
+   3 |  TRANSFER |    86.67% |   40.34  |   0.399
+   1 |    oracle |    80.37% |    4.43  |   0.283
+   2 |    oracle |    79.83% |    3.33  |   0.285
+   3 |    oracle |    80.37% |    4.35  |   0.289
+----------------------------------------------------------------------------
+TRANSFER mean: pruned=85.71±1.19%  drop=27.96±12.77pp  ratio=0.412±0.011
+ORACLE   mean: drop=4.04±0.61pp
+
+READ: transfer≈oracle≈3.68 → readout is a GENERAL theory of redundancy (transfers).
+      transfer >> oracle → pruner overfit to model A's specific weights.
+============================================================================

@@ -1,0 +1,19 @@
+================================================================================
+ISO-ACCURACY ARCHITECTURE COMPARISON (retrained per sw) — survivors @ ≤2.0pp
+Date: 2026-06-02 22:22:15
+Seeds: [0, 1]   (fresh pruner retrained at every sw, not threshold-swept)
+================================================================================
+
+               Model |  Total | Baseline |    Survivors@2pp |  % Pruned |         sw
+--------------------------------------------------------------------------------
+    narrow [205,205] |    410 |   98.21% |    296 ± 20     |   27.9±5.0 % |   0.06/0.1
+  medium [1024,1024] |   2048 |   98.06% |    490 ± 4      |   76.1±0.2 % |    0.3/0.3
+        deep [512x4] |   2048 |   98.32% |    814 ± 0      |   60.2±0.0 % |    0.8/0.8
+         wide [2048] |   2048 |   98.16% |    314 ± 2      |   84.6±0.1 % |    0.1/0.1
+--------------------------------------------------------------------------------
+
+vs threshold-sweep proxy (iso_accuracy_sweep): narrow 360 / medium 1179 / deep 744 / wide 806
+
+READ: survivors@2pp similar across all → absolute task floor.
+      differ by architecture → prunability is shape-dependent (redundancy distribution).
+================================================================================

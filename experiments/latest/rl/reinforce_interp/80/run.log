@@ -1,0 +1,99 @@
+Device: cpu
+
+Total hidden neurons: 2048  (target: prune 1638)
+Orig acc on eval batch: 99.61%
+
+  ep    1 | return=-0.7969 | final_acc=19.92% | drop=79.69% | frac_pruned=80.5% | loss=-79.5155
+  ep   10 | return=-0.9414 | final_acc=5.47% | drop=94.14% | frac_pruned=80.5% | loss=-43.4368
+    [greedy ★] ep=10  acc=5.47%  frac_pruned=80.5%  (new best)
+  ep   20 | return=-0.9258 | final_acc=7.03% | drop=92.58% | frac_pruned=80.5% | loss=-21.2757
+    [greedy]   ep=20  acc=5.47%
+  ep   30 | return=-0.8516 | final_acc=14.45% | drop=85.16% | frac_pruned=80.5% | loss=-1.1934
+    [greedy]   ep=30  acc=5.47%
+  ep   40 | return=-0.8555 | final_acc=14.06% | drop=85.55% | frac_pruned=80.5% | loss=+4.0514
+    [greedy]   ep=40  acc=5.47%
+  ep   50 | return=-0.7891 | final_acc=20.70% | drop=78.91% | frac_pruned=80.5% | loss=+13.9461
+    [greedy]   ep=50  acc=5.47%
+  ep   60 | return=-0.7969 | final_acc=19.92% | drop=79.69% | frac_pruned=80.5% | loss=+13.3759
+    [greedy]   ep=60  acc=5.47%
+  ep   70 | return=-0.6719 | final_acc=32.42% | drop=67.19% | frac_pruned=80.5% | loss=+25.6193
+    [greedy ★] ep=70  acc=23.05%  frac_pruned=80.5%  (new best)
+  ep   80 | return=-0.4375 | final_acc=55.86% | drop=43.75% | frac_pruned=80.5% | loss=+32.7343
+    [greedy ★] ep=80  acc=73.05%  frac_pruned=80.5%  (new best)
+  ep   90 | return=-0.3125 | final_acc=68.36% | drop=31.25% | frac_pruned=80.5% | loss=+33.0665
+    [greedy]   ep=90  acc=38.28%
+  ep  100 | return=-0.2383 | final_acc=75.78% | drop=23.83% | frac_pruned=80.5% | loss=+30.0771
+    [greedy]   ep=100  acc=44.92%
+  ep  110 | return=-0.1992 | final_acc=79.69% | drop=19.92% | frac_pruned=80.5% | loss=+24.3056
+    [greedy]   ep=110  acc=67.97%
+  ep  120 | return=-0.2383 | final_acc=75.78% | drop=23.83% | frac_pruned=80.5% | loss=+13.7592
+    [greedy]   ep=120  acc=69.92%
+  ep  130 | return=-0.2344 | final_acc=76.17% | drop=23.44% | frac_pruned=80.5% | loss=+10.3238
+    [greedy ★] ep=130  acc=77.34%  frac_pruned=80.5%  (new best)
+  ep  140 | return=-0.3828 | final_acc=61.33% | drop=38.28% | frac_pruned=80.5% | loss=-5.5950
+    [greedy ★] ep=140  acc=81.25%  frac_pruned=80.5%  (new best)
+  ep  150 | return=-0.3594 | final_acc=63.67% | drop=35.94% | frac_pruned=80.5% | loss=-1.1679
+    [greedy ★] ep=150  acc=86.72%  frac_pruned=80.5%  (new best)
+  ep  160 | return=-0.2383 | final_acc=75.78% | drop=23.83% | frac_pruned=80.5% | loss=+5.7295
+    [greedy]   ep=160  acc=82.03%
+  ep  170 | return=-0.2227 | final_acc=77.34% | drop=22.27% | frac_pruned=80.5% | loss=+8.9421
+    [greedy ★] ep=170  acc=87.11%  frac_pruned=80.5%  (new best)
+  ep  180 | return=-0.2227 | final_acc=77.34% | drop=22.27% | frac_pruned=80.5% | loss=+8.8971
+    [greedy]   ep=180  acc=82.42%
+  ep  190 | return=-0.3320 | final_acc=66.41% | drop=33.20% | frac_pruned=80.5% | loss=-1.8436
+    [greedy]   ep=190  acc=83.98%
+  ep  200 | return=-0.3555 | final_acc=64.06% | drop=35.55% | frac_pruned=80.5% | loss=-2.1073
+    [greedy]   ep=200  acc=70.70%
+  ep  210 | return=-0.4609 | final_acc=53.52% | drop=46.09% | frac_pruned=80.5% | loss=-9.4726
+    [greedy]   ep=210  acc=35.55%
+  ep  220 | return=-0.5000 | final_acc=49.61% | drop=50.00% | frac_pruned=80.5% | loss=-1.0578
+    [greedy]   ep=220  acc=19.14%
+  ep  230 | return=-0.4844 | final_acc=51.17% | drop=48.44% | frac_pruned=80.5% | loss=+4.6481
+    [greedy]   ep=230  acc=23.83%
+  ep  240 | return=-0.5508 | final_acc=44.53% | drop=55.08% | frac_pruned=80.5% | loss=+4.1559
+    [greedy]   ep=240  acc=9.77%
+  ep  250 | return=-0.4453 | final_acc=55.08% | drop=44.53% | frac_pruned=80.5% | loss=+18.1927
+    [greedy]   ep=250  acc=7.42%
+  ep  260 | return=-0.5234 | final_acc=47.27% | drop=52.34% | frac_pruned=80.5% | loss=+4.6665
+    [greedy]   ep=260  acc=6.25%
+  ep  270 | return=-0.4219 | final_acc=57.42% | drop=42.19% | frac_pruned=80.5% | loss=+14.9932
+    [greedy]   ep=270  acc=7.81%
+  ep  280 | return=-0.5977 | final_acc=39.84% | drop=59.77% | frac_pruned=80.5% | loss=-1.1776
+    [greedy]   ep=280  acc=8.59%
+  ep  290 | return=-0.5938 | final_acc=40.23% | drop=59.38% | frac_pruned=80.5% | loss=+2.2012
+    [greedy]   ep=290  acc=20.31%
+  ep  300 | return=-0.5234 | final_acc=47.27% | drop=52.34% | frac_pruned=80.5% | loss=+10.9388
+    [greedy]   ep=300  acc=33.20%
+Saved training curves to experiments/latest/rl_reinforce_interp/80/training_curves.png
+
+Full test set (best-greedy mask, ep 170):  baseline=98.06%  pruned=87.33%  drop=10.73pp
+
+Running interpretability on best-greedy mask (ep 170, greedy eval-batch acc 87.11%)
+
+================================================================
+PRUNER INTERPRETABILITY REPORT
+================================================================
+  Total hidden neurons     : 2048
+  Kept                     : 400 (19.53%)
+  Pruned                   : 1648 (80.47%)
+
+  Per-layer breakdown
+   Layer |   Total |    Kept |  Pruned |  % Pruned
+  ----------------------------------------------------------
+       1 |    1024 |     284 |     740 |    72.27%
+       2 |    1024 |     116 |     908 |    88.67%
+
+  Mean post-ReLU activation (under ORIGINAL, un-pruned model)
+   Layer |     Kept (alive) |    Pruned (dead) |   Ratio dead/alive
+  ----------------------------------------------------------------
+       1 |           0.2622 |           0.1987 |              0.758
+       2 |           0.5289 |           0.5404 |              1.022
+
+  Overall mean activation — alive : 0.3395
+  Overall mean activation — dead  : 0.3870
+  Ratio (dead / alive)            : 1.140
+  Interpretation                  : pruner is killing high-firing neurons too — joint reasoning at work
+================================================================
+
+Saved interpretability plot to experiments/latest/rl_reinforce_interp/80/interp.png
+Saved summary to experiments/latest/rl_reinforce_interp/80/summary.txt

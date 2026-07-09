@@ -1,0 +1,50 @@
+n_total 2048 total_steps 5100 | config: center+tanh
+  keep 90% K=1843 active_frac=1.000 max_tied=70
+  keep 75% K=1536 active_frac=0.878 max_tied=5
+  keep 60% K=1229 active_frac=0.596 max_tied=2
+  keep 50% K=1024 active_frac=0.383 max_tied=3
+  keep 42% K= 860 active_frac=0.290 max_tied=2
+  keep 36% K= 737 active_frac=0.219 max_tied=3
+  keep 31% K= 635 active_frac=0.158 max_tied=4
+  keep 27% K= 553 active_frac=0.099 max_tied=3
+  keep 24% K= 492 active_frac=0.077 max_tied=4
+  keep 21% K= 430 active_frac=0.057 max_tied=5
+  keep 18% K= 369 active_frac=0.037 max_tied=4
+
+STE-TOP-K 'WHY' PROOF — center+tanh (best stable config), seed 0
+======================================================================
+QUANTITATIVE
+  total steps logged            : 5100
+  active fraction (σ'>0.05):  mean=0.261  median=0.155  min=0.033  max=1.000
+  per-stage mean active fraction:
+      keep 90% (K=1843): active=1.000  -> ~1843/1843 neurons learn
+      keep 75% (K=1536): active=0.878  -> ~1348/1536 neurons learn
+      keep 60% (K=1229): active=0.596  -> ~732/1229 neurons learn
+      keep 50% (K=1024): active=0.383  -> ~392/1024 neurons learn
+      keep 42% (K= 860): active=0.290  -> ~250/860 neurons learn
+      keep 36% (K= 737): active=0.219  -> ~162/737 neurons learn
+      keep 31% (K= 635): active=0.158  -> ~100/635 neurons learn
+      keep 27% (K= 553): active=0.099  -> ~55/553 neurons learn
+      keep 24% (K= 492): active=0.077  -> ~38/492 neurons learn
+      keep 21% (K= 430): active=0.057  -> ~25/430 neurons learn
+      keep 18% (K= 369): active=0.037  -> ~14/369 neurons learn
+  ties at τ (|s−τ|<0.001):  mean=1.37  max=70
+  steps with ties >= 50% of K   : 0 / 5100
+  pre-clip grad norm percentiles [0,5,50,95,100]: [0.001, 0.002, 0.010, 0.091, 0.734]
+  steps with grad norm > clip(1.0): 0 / 5100
+
+QUALITATIVE
+  - Boundary-local CONFIRMED: only ~26% of neurons get
+    non-trivial score-gradient at any step (the σ'((s−τ)/T) band). Most
+    neurons sit far from τ on σ's flat tail → ~0 gradient. The curriculum
+    sweeps τ so different neurons activate over time, but per-step learning
+    is concentrated on the threshold neighbourhood ⇒ under-optimized subset.
+  - Ties are NOT the issue here: 0 steps with >=50%K tied
+    (the >=50%K tie/index-order pathology was collapse-only; gone with tanh).
+  - Gradients are STABLE: median pre-clip norm 0.010, 0 steps clipped — NEITHER exploding NOR vanishing at the param level.
+  - So the loss vs λ is NOT a numeric blow-up; it is the boundary-local
+    score-gradient + hard budget under-optimizing the selection vs λ's
+    global soft-penalty gradient. Confirms the F12 'why'.
+======================================================================
+
+Saved experiments/latest/hypernetwork/topk_curriculum/topk_proof.png

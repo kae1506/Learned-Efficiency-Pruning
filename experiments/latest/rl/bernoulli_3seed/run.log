@@ -1,0 +1,65 @@
+Device: cpu  |  Bernoulli action  |  seeds=[0, 1, 2]  |  episodes=250
+
+Baseline test acc (full set): 98.06%
+
+━━━━━ seed 0 ━━━━━
+    ep  25/250  return=-0.789  greedy_acc=5.47%  greedy_pruned=81.0%  steps/ep=37
+    ep  50/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=82.2%  steps/ep=8
+    ep  75/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=88.0%  steps/ep=3
+    ep 100/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=98.6%  steps/ep=2
+    ep 125/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=94.1%  steps/ep=4
+    ep 150/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=85.2%  steps/ep=8
+    ep 175/250  return=-0.789  greedy_acc=5.47%  greedy_pruned=86.1%  steps/ep=2
+    ep 200/250  return=-0.242  greedy_acc=5.47%  greedy_pruned=85.4%  steps/ep=5
+    ep 225/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=82.4%  steps/ep=4
+    ep 250/250  return=-0.906  greedy_acc=5.47%  greedy_pruned=85.7%  steps/ep=3
+  → seed 0: pruned=81.01%  test_acc=9.74%  drop=88.32pp  ratio=33.456  [67s]
+
+━━━━━ seed 1 ━━━━━
+    ep  25/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=83.3%  steps/ep=6
+    ep  50/250  return=-0.918  greedy_acc=5.47%  greedy_pruned=85.0%  steps/ep=2
+    ep  75/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=97.9%  steps/ep=2
+    ep 100/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=91.9%  steps/ep=2
+    ep 125/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=93.3%  steps/ep=2
+    ep 150/250  return=-0.938  greedy_acc=5.47%  greedy_pruned=93.0%  steps/ep=3
+    ep 175/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=97.9%  steps/ep=2
+    ep 200/250  return=-0.547  greedy_acc=5.47%  greedy_pruned=80.1%  steps/ep=1
+    ep 225/250  return=-0.941  greedy_acc=5.47%  greedy_pruned=96.3%  steps/ep=2
+    ep 250/250  return=-0.934  greedy_acc=7.81%  greedy_pruned=88.0%  steps/ep=2
+  → seed 1: pruned=87.99%  test_acc=13.57%  drop=84.49pp  ratio=1.601  [55s]
+
+━━━━━ seed 2 ━━━━━
+    ep  25/250  return=-0.242  greedy_acc=73.83%  greedy_pruned=86.5%  steps/ep=3
+    ep  50/250  return=-0.047  greedy_acc=51.56%  greedy_pruned=82.1%  steps/ep=3
+    ep  75/250  return=-0.355  greedy_acc=5.47%  greedy_pruned=83.2%  steps/ep=2
+    ep 100/250  return=-0.203  greedy_acc=5.47%  greedy_pruned=84.4%  steps/ep=2
+    ep 125/250  return=-0.227  greedy_acc=82.03%  greedy_pruned=86.7%  steps/ep=2
+    ep 150/250  return=-0.414  greedy_acc=11.72%  greedy_pruned=89.2%  steps/ep=2
+    ep 175/250  return=-0.207  greedy_acc=82.42%  greedy_pruned=86.9%  steps/ep=4
+    ep 200/250  return=-0.473  greedy_acc=5.47%  greedy_pruned=81.2%  steps/ep=2
+    ep 225/250  return=-0.426  greedy_acc=12.89%  greedy_pruned=86.8%  steps/ep=2
+    ep 250/250  return=-0.176  greedy_acc=51.95%  greedy_pruned=85.9%  steps/ep=2
+  → seed 2: pruned=86.91%  test_acc=82.93%  drop=15.13pp  ratio=0.420  [54s]
+
+Saved plot to experiments/latest/rl/bernoulli_3seed/plot.png
+==============================================================================
+PER-NEURON BERNOULLI ACTION — actor-critic, 3 seeds, 250 ep, 80% target
+Date: 2026-06-02 15:06:02
+==============================================================================
+
+Baseline test accuracy: 98.06%
+Action     : independent Bernoulli per alive neuron (exact factorised log-prob)
+Init bias  : -4.8 (≈16 expected pruned/step at start)
+Entropy    : SUM per-neuron Bernoulli H, coef=0.001
+
+seed |  % Pruned |  Test Acc |  Drop pp |   Ratio |   secs
+------------------------------------------------------------------------------
+   0 |    81.01% |     9.74% |   88.32  |  33.456 |     67
+   1 |    87.99% |    13.57% |   84.49  |   1.601 |     55
+   2 |    86.91% |    82.93% |   15.13  |   0.420 |     54
+------------------------------------------------------------------------------
+mean |           |           |   62.65±41.20 | 11.826±18.741
+
+PRIORS: AC k=16 5-seed 4.71±1.55 | AC k=8 3-seed 5.54±3.44 | BiLSTM 5-seed 3.68±0.79
+
+==============================================================================

@@ -1,0 +1,47 @@
+========================================================================================
+GRADIENT PROBE — predicted λ_opt vs observed (5 nets; narrow excluded)
+========================================================================================
+Protocol: 2 TRAINING batches × 256 samples, gates=1, CPU
+
+model                      observed λ_opt
+MNIST Wide [2048]                  0.0300
+MNIST Medium [1024x2]              0.0600
+MNIST Deep [512x4]                 0.2500
+LeNet (CIFAR)                      0.0400
+CIFAR_big                          0.0300
+
+--- P1: c · N · S_avg · ⟨|g|⟩ ---  c=1.7924e-01  R²(log)=-1.315  max ratio=4.67×  RMS ratio=3.34×
+  MNIST Wide [2048]          observed=0.0300  predicted=0.0132  ratio=2.28×
+  MNIST Medium [1024x2]      observed=0.0600  predicted=0.0342  ratio=1.75×
+  MNIST Deep [512x4]         observed=0.2500  predicted=0.0574  ratio=4.35×
+  LeNet (CIFAR)              observed=0.0400  predicted=0.1866  ratio=0.21×
+  CIFAR_big                  observed=0.0300  predicted=0.1118  ratio=0.27×
+
+--- P2: c · max_ℓ (N · S_ℓ · ⟨|g|⟩_ℓ) ---  c=1.2628e-01  R²(log)=-1.139  max ratio=4.22×  RMS ratio=3.18×
+  MNIST Wide [2048]          observed=0.0300  predicted=0.0093  ratio=3.23×
+  MNIST Medium [1024x2]      observed=0.0600  predicted=0.0324  ratio=1.85×
+  MNIST Deep [512x4]         observed=0.2500  predicted=0.0908  ratio=2.75×
+  LeNet (CIFAR)              observed=0.0400  predicted=0.1559  ratio=0.26×
+  CIFAR_big                  observed=0.0300  predicted=0.1267  ratio=0.24×
+
+--- P3: c · median_ℓ (N · S_ℓ · ⟨|g|⟩_ℓ) ---  c=1.6976e-01  R²(log)=-1.323  max ratio=5.24×  RMS ratio=3.34×
+  MNIST Wide [2048]          observed=0.0300  predicted=0.0125  ratio=2.40×
+  MNIST Medium [1024x2]      observed=0.0600  predicted=0.0436  ratio=1.38×
+  MNIST Deep [512x4]         observed=0.2500  predicted=0.0523  ratio=4.78×
+  LeNet (CIFAR)              observed=0.0400  predicted=0.2096  ratio=0.19×
+  CIFAR_big                  observed=0.0300  predicted=0.0906  ratio=0.33×
+
+--- P4: c · max_ℓ (N · S_ℓ · median(|g|_ℓ)) ---  c=1.7747e+00  R²(log)=-6.807  max ratio=42.07×  RMS ratio=9.14×
+  MNIST Wide [2048]          observed=0.0300  predicted=0.0013  ratio=23.69×
+  MNIST Medium [1024x2]      observed=0.0600  predicted=0.0339  ratio=1.77×
+  MNIST Deep [512x4]         observed=0.2500  predicted=0.1901  ratio=1.32×
+  LeNet (CIFAR)              observed=0.0400  predicted=1.6830  ratio=0.02×
+  CIFAR_big                  observed=0.0300  predicted=0.0394  ratio=0.76×
+
+--- P5: c · N · Σ_ℓ S_ℓ · ⟨|g|⟩_ℓ ---  c=8.2638e-02  R²(log)=-1.717  max ratio=5.15×  RMS ratio=3.69×
+  MNIST Wide [2048]          observed=0.0300  predicted=0.0061  ratio=4.94×
+  MNIST Medium [1024x2]      observed=0.0600  predicted=0.0315  ratio=1.90×
+  MNIST Deep [512x4]         observed=0.2500  predicted=0.1059  ratio=2.36×
+  LeNet (CIFAR)              observed=0.0400  predicted=0.1721  ratio=0.23×
+  CIFAR_big                  observed=0.0300  predicted=0.1546  ratio=0.19×
+

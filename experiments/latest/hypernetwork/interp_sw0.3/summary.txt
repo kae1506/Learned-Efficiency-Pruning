@@ -1,0 +1,26 @@
+================================================================
+BiLSTM PRUNER + INTERPRETABILITY
+Date: 2026-05-29 01:05:25
+================================================================
+
+Base model       : MLP 784 -> 1024 -> 1024 -> 10
+Checkpoint       : experiments/checkpoints/mnist_model.pt
+Sparsity weight  : 0.3
+Pruner steps     : 1000
+Calib batches    : 5
+
+OVERALL  pruned = 75.83%  (kept 495, pruned 1553 of 2048)
+
+Per-layer breakdown:
+  Layer 1:   807/1024 pruned (78.81%)
+  Layer 2:   746/1024 pruned (72.85%)
+
+Mean post-ReLU activation (under ORIGINAL model):
+  Layer 1: alive 0.5279  dead 0.1416
+  Layer 2: alive 1.0370  dead 0.3771
+
+OVERALL  alive mean activation = 0.8138
+OVERALL  dead  mean activation = 0.2547
+OVERALL  ratio (dead/alive)    = 0.313
+
+================================================================

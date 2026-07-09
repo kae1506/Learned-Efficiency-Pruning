@@ -1,0 +1,29 @@
+============================================================
+PRUNER EXPERIMENT SUMMARY
+Date: 2026-03-11 16:04:13
+============================================================
+
+BASE MODEL
+  Architecture : MLP 784 -> 1024 -> 1024 -> 10
+  Dropout      : 0.1
+  Train epochs : 10
+  LR           : 0.001
+
+PRUNER CONFIG
+  Steps              : 1000
+  Samples / step     : 64
+  LR                 : 0.001
+  Sparsity weight    : 0.5
+  Prunable layers    : [(1024, 784), (1024, 1024)]
+  Gate type          : Hard binary (Straight-Through Estimator)
+
+RESULTS
+  Final avg gate     : 0.2002  (1.0 = all kept, 0.0 = all pruned)
+  Nodes pruned       : 80.0%
+  Peak pruning       : 80.0%
+  Avg orig acc       : 99.41%
+  Avg pruned acc     : 95.90%
+  Avg acc drop       : 3.51%
+  Final pruner loss  : 0.3056
+
+============================================================

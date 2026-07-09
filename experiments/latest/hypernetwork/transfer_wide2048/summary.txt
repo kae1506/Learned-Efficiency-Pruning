@@ -1,0 +1,22 @@
+========================================================================
+WIDE-MODEL BiLSTM TEST — 784 -> [2048] -> 10  (2048 hidden)
+Date: 2026-06-02 16:17:21
+========================================================================
+
+Same hidden-neuron budget as baseline (2048), different shape.
+Baseline (this wide model) test accuracy: 98.16%
+BiLSTM: sw=0.5, 1000 steps, 3 seeds
+
+seed |  % Pruned |  Test Acc |  Drop pp |   Ratio
+------------------------------------------------------------------------
+   0 |    93.65% |    89.10% |    9.06  |   0.309
+   1 |    93.12% |    91.69% |    6.47  |   0.264
+   2 |    93.65% |    91.73% |    6.43  |   0.290
+------------------------------------------------------------------------
+mean |   93.47±0.31 |           |    7.32±1.51 | 0.288±0.023
+
+BASELINE [1024,1024] (5-seed): 79.17±0.16% pruned, 3.68±0.79pp drop, ratio 0.308±0.007
+
+Interpretation: if wide-model prune% / drop match baseline → prunability is a
+property of the neuron BUDGET; if they differ → it depends on SHAPE/params.
+========================================================================

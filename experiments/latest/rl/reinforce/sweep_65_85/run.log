@@ -1,0 +1,17 @@
+Device: cpu
+Fractions to sweep: [0.65, 0.6722, 0.6944, 0.7167, 0.7389, 0.7611, 0.7833, 0.8056, 0.8278, 0.85]
+Episodes per fraction: 250
+
+[1/10] max_prune = 0.6500  |  best_sampled= 98.83% (drop  0.78%)  best_greedy= 98.83% (drop  0.78%)  [152.7s]
+[2/10] max_prune = 0.6722  |  best_sampled= 98.44% (drop  1.17%)  best_greedy= 99.22% (drop  0.39%)  [160.0s]
+[3/10] max_prune = 0.6944  |  best_sampled= 98.83% (drop  0.78%)  best_greedy= 98.83% (drop  0.78%)  [162.2s]
+[4/10] max_prune = 0.7167  |  best_sampled= 98.83% (drop  0.78%)  best_greedy= 98.05% (drop  1.56%)  [167.6s]
+[5/10] max_prune = 0.7389  |  best_sampled= 97.27% (drop  2.34%)  best_greedy= 95.70% (drop  3.91%)  [187.0s]
+[6/10] max_prune = 0.7611  |  best_sampled= 97.66% (drop  1.95%)  best_greedy= 95.70% (drop  3.91%)  [175.8s]
+[7/10] max_prune = 0.7833  |  best_sampled= 94.53% (drop  5.08%)  best_greedy= 94.53% (drop  5.08%)  [180.8s]
+[8/10] max_prune = 0.8056  |  best_sampled= 94.92% (drop  4.69%)  best_greedy= 88.28% (drop 11.33%)  [216.2s]
+[9/10] max_prune = 0.8278  |  best_sampled= 94.53% (drop  5.08%)  best_greedy= 96.48% (drop  3.12%)  [1159.0s]
+[10/10] max_prune = 0.8500  |  best_sampled= 94.53% (drop  5.08%)  best_greedy= 92.19% (drop  7.42%)  [356.8s]
+
+Saved plot to experiments/latest/rl_sweep_accdrop.png
+Saved summary to experiments/latest/sweep_rl_pruner.txt

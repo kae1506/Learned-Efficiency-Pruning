@@ -1,0 +1,40 @@
+============================================================
+RL PRUNER SUMMARY (PPO)
+Date: 2026-05-27 21:11:32
+============================================================
+
+BASE MODEL
+  Architecture        : MLP 784 -> 1024 -> 1024 -> 10
+  Checkpoint          : experiments/checkpoints/mnist_model.pt
+  Total hidden        : 2048 neurons
+  Orig acc (eval batch): 99.61%
+
+ENVIRONMENT
+  Max prune fraction  : 80%
+  Prune chunk         : 16
+  Recalibrate every   : 5 steps
+  Reward              : r_t = acc_t - acc_{t-1}
+
+ALGORITHM
+  Method              : Actor-critic PPO (clipped)
+  Clip epsilon        : 0.2
+  PPO epochs / rollout: 4
+  GAE lambda          : 0.95
+  Gamma               : 1.0
+  Value coef          : 0.5
+  Entropy coef        : 0.01
+  Max grad norm       : 1.0
+
+TRAINING
+  Episodes            : 300
+  LR                  : 0.0003
+
+RESULTS
+  Final episode       : return=-0.4609  acc=53.52%  drop=46.09%  frac_pruned=80.5%
+  Best-acc episode    : ep=18  acc=92.97%  drop=6.64%
+
+GREEDY EVAL
+  Last greedy acc     : 16.80% (ep 300)
+  Best greedy acc     : 89.06%
+
+============================================================

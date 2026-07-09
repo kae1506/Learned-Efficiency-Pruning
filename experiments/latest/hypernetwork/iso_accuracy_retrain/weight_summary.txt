@@ -1,0 +1,21 @@
+======================================================================================
+NEURON-PRUNING vs WEIGHT/COMPUTE SAVINGS — at the ≤2pp operating point
+======================================================================================
+
+Pruned weights = inference MACs for an MLP, so weight% == compute%.
+Input(784×h1) & output(h_last×10) matrices: 1-sided prune → LINEAR savings.
+Hidden→hidden matrices (deep/medium only): 2-sided → QUADRATIC savings.
+
+               Model |    sw | Neurons -% | Weights -% |    Orig W |   Final W | survivors/layer
+--------------------------------------------------------------------------------------
+    narrow [205,205] |  0.08 |      30.2% |      59.9% |     205K |      82K | [81, 205]
+  medium [1024,1024] |   0.3 |      75.9% |      87.7% |    1862K |     230K | [213, 281]
+        deep [512x4] |   0.8 |      60.3% |      79.7% |    1193K |     242K | [155, 308, 135, 216]
+         wide [2048] |   0.1 |      84.8% |      84.8% |    1626K |     248K | [312]
+--------------------------------------------------------------------------------------
+
+KEY: compare 'Final W' across the three 2048-neuron nets (wide/medium/deep).
+If they converge → a WEIGHT/COMPUTE floor exists even though the NEURON
+floor does not (neuron survivors were 314/490/814). Weights are the better
+lens for 'actual compute saved'.
+======================================================================================

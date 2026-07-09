@@ -1,0 +1,13 @@
+CIFAR LeNet MLP pruner — λ = 0.08
+layers : [(128, 400), (64, 128)]
+steps  : 2940
+time   : 294.8s
+--------------------------------------------------------
+final avg keep gate          : 0.5195
+final % MLP neurons pruned   : 48.05%
+per-layer kept (fc1/fc2)     : [(41, 128), (46, 64)]
+--------------------------------------------------------
+FULL test set (10000 imgs):
+  original (unpruned) acc    : 64.84%
+  pruned              acc    : 53.75%
+  drop                       : +11.09pp

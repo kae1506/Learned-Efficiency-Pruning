@@ -1,0 +1,49 @@
+Device: cpu  |  max_prune=0.70  |  tag=70
+Total hidden neurons: 2048  (target: prune 1433)
+Orig acc on eval batch: 99.61%
+  ep    1 | return=-0.1992 | final_acc=79.69% | drop=19.92% | frac_pruned=70.3% | steps=90 | loss=-18.1931
+  ep   10 | return=-0.0820 | final_acc=91.41% | drop=8.20% | frac_pruned=70.3% | steps=90 | loss=-3.7646
+  ep   20 | return=-0.0312 | final_acc=96.48% | drop=3.12% | frac_pruned=70.3% | steps=90 | loss=+3.6481
+    [greedy] final_acc=91.80% | frac_pruned=70.3%
+  ep   30 | return=-0.0352 | final_acc=96.09% | drop=3.52% | frac_pruned=70.3% | steps=90 | loss=+2.4926
+  ep   40 | return=-0.0625 | final_acc=93.36% | drop=6.25% | frac_pruned=70.3% | steps=90 | loss=+0.6420
+  ep   50 | return=-0.0391 | final_acc=95.70% | drop=3.91% | frac_pruned=70.3% | steps=90 | loss=+2.7143
+    [greedy] final_acc=98.05% | frac_pruned=70.3%
+  ep   60 | return=-0.0664 | final_acc=92.97% | drop=6.64% | frac_pruned=70.3% | steps=90 | loss=+0.4255
+  ep   70 | return=-0.1055 | final_acc=89.06% | drop=10.55% | frac_pruned=70.3% | steps=90 | loss=-2.6764
+    [greedy] final_acc=93.36% | frac_pruned=70.3%
+  ep   80 | return=-0.0547 | final_acc=94.14% | drop=5.47% | frac_pruned=70.3% | steps=90 | loss=+1.8629
+  ep   90 | return=-0.0938 | final_acc=90.23% | drop=9.38% | frac_pruned=70.3% | steps=90 | loss=-0.3051
+  ep  100 | return=-0.0547 | final_acc=94.14% | drop=5.47% | frac_pruned=70.3% | steps=90 | loss=+3.3656
+    [greedy] final_acc=95.70% | frac_pruned=70.3%
+  ep  110 | return=-0.0547 | final_acc=94.14% | drop=5.47% | frac_pruned=70.3% | steps=90 | loss=+2.0744
+  ep  120 | return=-0.0703 | final_acc=92.58% | drop=7.03% | frac_pruned=70.3% | steps=90 | loss=+0.0842
+    [greedy] final_acc=92.58% | frac_pruned=70.3%
+  ep  130 | return=-0.0625 | final_acc=93.36% | drop=6.25% | frac_pruned=70.3% | steps=90 | loss=+0.4897
+  ep  140 | return=-0.0781 | final_acc=91.80% | drop=7.81% | frac_pruned=70.3% | steps=90 | loss=+0.3421
+  ep  150 | return=-0.0898 | final_acc=90.62% | drop=8.98% | frac_pruned=70.3% | steps=90 | loss=-0.1926
+    [greedy] final_acc=95.70% | frac_pruned=70.3%
+  ep  160 | return=-0.0508 | final_acc=94.53% | drop=5.08% | frac_pruned=70.3% | steps=90 | loss=+4.2186
+  ep  170 | return=-0.0977 | final_acc=89.84% | drop=9.77% | frac_pruned=70.3% | steps=90 | loss=+0.3233
+    [greedy] final_acc=94.92% | frac_pruned=70.3%
+  ep  180 | return=-0.1914 | final_acc=80.47% | drop=19.14% | frac_pruned=70.3% | steps=90 | loss=-8.5523
+  ep  190 | return=-0.0469 | final_acc=94.92% | drop=4.69% | frac_pruned=70.3% | steps=90 | loss=+6.7439
+  ep  200 | return=-0.0977 | final_acc=89.84% | drop=9.77% | frac_pruned=70.3% | steps=90 | loss=-0.3823
+    [greedy] final_acc=41.02% | frac_pruned=70.3%
+  ep  210 | return=-0.0391 | final_acc=95.70% | drop=3.91% | frac_pruned=70.3% | steps=90 | loss=+5.2916
+  ep  220 | return=-0.0820 | final_acc=91.41% | drop=8.20% | frac_pruned=70.3% | steps=90 | loss=+0.6953
+    [greedy] final_acc=84.77% | frac_pruned=70.3%
+  ep  230 | return=-0.0742 | final_acc=92.19% | drop=7.42% | frac_pruned=70.3% | steps=90 | loss=+1.8791
+  ep  240 | return=-0.0352 | final_acc=96.09% | drop=3.52% | frac_pruned=70.3% | steps=90 | loss=+4.9190
+  ep  250 | return=-0.0781 | final_acc=91.80% | drop=7.81% | frac_pruned=70.3% | steps=90 | loss=+0.5146
+    [greedy] final_acc=98.44% | frac_pruned=70.3%
+  ep  260 | return=-0.0430 | final_acc=95.31% | drop=4.30% | frac_pruned=70.3% | steps=90 | loss=+2.7154
+  ep  270 | return=-0.0312 | final_acc=96.48% | drop=3.12% | frac_pruned=70.3% | steps=90 | loss=+3.3636
+    [greedy] final_acc=98.05% | frac_pruned=70.3%
+  ep  280 | return=-0.0703 | final_acc=92.58% | drop=7.03% | frac_pruned=70.3% | steps=90 | loss=-1.0909
+  ep  290 | return=-0.0469 | final_acc=94.92% | drop=4.69% | frac_pruned=70.3% | steps=90 | loss=+0.4341
+  ep  300 | return=-0.0391 | final_acc=95.70% | drop=3.91% | frac_pruned=70.3% | steps=90 | loss=+3.2863
+    [greedy] final_acc=88.67% | frac_pruned=70.3%
+
+Saved plot to experiments/latest/rl_pruner_70.png
+Saved summary to experiments/latest/summary_rl_pruner_70.txt

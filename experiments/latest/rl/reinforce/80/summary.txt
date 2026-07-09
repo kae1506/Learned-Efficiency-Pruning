@@ -1,0 +1,40 @@
+============================================================
+RL PRUNER SUMMARY (REINFORCE)
+Date: 2026-05-27 15:53:59
+============================================================
+
+BASE MODEL
+  Architecture        : MLP 784 -> 1024 -> 1024 -> 10
+  Checkpoint          : experiments/checkpoints/mnist_model.pt
+  Total hidden        : 2048 neurons
+  Orig acc (eval batch): 99.61%
+
+ENVIRONMENT
+  Max prune fraction  : 80%
+  Prune chunk         : 16
+  Recalibrate every   : 5 steps
+  Calib batch size    : 256
+  Eval batch size     : 256
+  Reward              : r_t = acc_t - acc_{t-1}
+
+POLICY
+  Feat dim            : 8
+  Global dim          : 3
+  Hidden              : 64
+
+TRAINING
+  Episodes            : 300
+  LR                  : 0.001
+  Entropy coef        : 0.01
+  Baseline decay      : 0.95
+  Gamma               : 1.0
+
+RESULTS
+  Final episode       : return=-0.1797  acc=81.64%  drop=17.97%  frac_pruned=80.5%
+  Best-acc episode    : ep=166  acc=95.31%  drop=4.30%
+
+GREEDY EVAL
+  Last greedy acc     : 69.53% (ep 300)
+  Best greedy acc     : 92.19%
+
+============================================================

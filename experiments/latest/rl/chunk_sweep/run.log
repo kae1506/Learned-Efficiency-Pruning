@@ -1,0 +1,62 @@
+Device: cpu  |  seed=0  |  sweep=[8, 4, 1]
+
+Baseline test acc (full set): 98.06%
+
+━━━━━ k=8  (250 episodes) ━━━━━
+    [k=8] ep  20/250  return=-0.941  greedy_eval_acc=5.47%  steps/ep=205
+    [k=8] ep  40/250  return=-0.703  greedy_eval_acc=32.81%  steps/ep=205
+    [k=8] ep  60/250  return=-0.414  greedy_eval_acc=70.70%  steps/ep=205
+    [k=8] ep  80/250  return=-0.121  greedy_eval_acc=91.41%  steps/ep=205
+    [k=8] ep 100/250  return=-0.055  greedy_eval_acc=91.02%  steps/ep=205
+    [k=8] ep 120/250  return=-0.168  greedy_eval_acc=91.41%  steps/ep=205
+    [k=8] ep 140/250  return=-0.277  greedy_eval_acc=96.48%  steps/ep=205
+    [k=8] ep 160/250  return=-0.246  greedy_eval_acc=94.92%  steps/ep=205
+    [k=8] ep 180/250  return=-0.098  greedy_eval_acc=95.31%  steps/ep=205
+    [k=8] ep 200/250  return=-0.188  greedy_eval_acc=90.23%  steps/ep=205
+    [k=8] ep 220/250  return=-0.117  greedy_eval_acc=86.72%  steps/ep=205
+    [k=8] ep 240/250  return=-0.137  greedy_eval_acc=96.09%  steps/ep=205
+  → k=8: pruned=80.08%  test_acc=95.38%  drop=2.68pp  ratio=0.390  [1872s]
+
+━━━━━ k=4  (200 episodes) ━━━━━
+    [k=4] ep  20/200  return=-0.441  greedy_eval_acc=14.06%  steps/ep=410
+    [k=4] ep  40/200  return=-0.355  greedy_eval_acc=19.92%  steps/ep=410
+    [k=4] ep  60/200  return=-0.391  greedy_eval_acc=5.47%  steps/ep=410
+    [k=4] ep  80/200  return=-0.188  greedy_eval_acc=5.47%  steps/ep=410
+    [k=4] ep 100/200  return=-0.219  greedy_eval_acc=13.67%  steps/ep=410
+    [k=4] ep 120/200  return=-0.137  greedy_eval_acc=95.31%  steps/ep=410
+    [k=4] ep 140/200  return=-0.113  greedy_eval_acc=96.88%  steps/ep=410
+    [k=4] ep 160/200  return=-0.129  greedy_eval_acc=97.27%  steps/ep=410
+    [k=4] ep 180/200  return=-0.281  greedy_eval_acc=88.28%  steps/ep=410
+    [k=4] ep 200/200  return=-0.156  greedy_eval_acc=96.88%  steps/ep=410
+  → k=4: pruned=80.08%  test_acc=94.23%  drop=3.83pp  ratio=0.404  [864s]
+
+━━━━━ k=1  (100 episodes) ━━━━━
+    [k=1] ep  20/100  return=-0.430  greedy_eval_acc=20.70%  steps/ep=1639
+    [k=1] ep  40/100  return=-0.242  greedy_eval_acc=48.44%  steps/ep=1639
+    [k=1] ep  60/100  return=-0.105  greedy_eval_acc=95.31%  steps/ep=1639
+    [k=1] ep  80/100  return=-0.312  greedy_eval_acc=58.98%  steps/ep=1639
+    [k=1] ep 100/100  return=-0.160  greedy_eval_acc=61.33%  steps/ep=1639
+  → k=1: pruned=80.03%  test_acc=93.53%  drop=4.53pp  ratio=0.510  [1486s]
+
+Saved comparison plot to experiments/latest/rl/chunk_sweep/plot.png
+==============================================================================
+PRUNE-CHUNK SWEEP — actor-critic, 1 seed, 80% target, raw entropy
+Date: 2026-06-01 22:35:11
+==============================================================================
+
+Base model            : MLP 784 -> 1024 -> 1024 -> 10
+Baseline test accuracy: 98.06%
+Seed                  : 0
+NOTE: episode budgets are CAPPED per-k (smaller k costs ~1/k more/episode).
+      Comparison is across k at each k's plateau, not equal episodes.
+
+  k | episodes | steps/ep |  % Pruned |  Test Acc |  Drop pp |   Ratio |   secs
+------------------------------------------------------------------------------
+  8 |      250 |      205 |    80.08% |    95.38% |    2.68  |   0.390 |   1872
+  4 |      200 |      410 |    80.08% |    94.23% |    3.83  |   0.404 |    864
+  1 |      100 |     1639 |    80.03% |    93.53% |    4.53  |   0.510 |   1486
+------------------------------------------------------------------------------
+
+PRIORS (k=16): AC 5-seed 4.71±1.55 | BiLSTM 5-seed 3.68±0.79 | REINFORCE 6.01±4.17
+
+==============================================================================

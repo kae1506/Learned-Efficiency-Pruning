@@ -1,0 +1,13 @@
+MNIST MLP pruner — λ = 0.02, seed = 0
+layers : [(2048, 784)]
+steps  : 3525
+time   : 60.8s
+--------------------------------------------------------
+final avg keep gate          : 0.2241
+final % MLP neurons pruned   : 77.59%
+per-layer kept               : [(459, 2048)]
+--------------------------------------------------------
+FULL test set:
+  original (unpruned) acc    : 98.16%
+  pruned              acc    : 98.03%
+  drop                       : +0.13pp

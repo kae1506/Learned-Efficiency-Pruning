@@ -1,0 +1,24 @@
+baseline 98.06% | n_total 2048 | total_steps 5100
+  keep 90% K=1843 surv=1843 drop=  0.17pp rawstd=(0.162,0.151)
+  keep 75% K=1536 surv=1536 drop=  2.39pp rawstd=(1.410,0.162)
+  keep 60% K=1229 surv=1229 drop= 13.92pp rawstd=(5.464,0.166)
+  keep 50% K=1024 surv=1024 drop= 88.32pp rawstd=(5.627,0.202)
+  keep 42% K= 860 surv= 973 drop= 88.32pp rawstd=(5.627,0.546)
+  keep 36% K= 737 surv= 737 drop= 88.32pp rawstd=(5.627,0.848)
+  keep 31% K= 635 surv= 635 drop= 88.32pp rawstd=(5.627,1.026)
+  keep 27% K= 553 surv= 553 drop= 88.32pp rawstd=(5.627,1.155)
+  keep 24% K= 492 surv= 492 drop= 88.32pp rawstd=(5.627,1.272)
+  keep 21% K= 430 surv= 430 drop= 88.32pp rawstd=(5.627,1.406)
+  keep 18% K= 369 surv= 369 drop= 88.32pp rawstd=(5.627,1.460)
+
+STE-TOP-K COLLAPSE PROBE (v4 config: centered STE, global T, std_detach, carry-Adam)
+baseline 98.06%  n_total 2048  seed 0
+
+Stage boundaries (global_step -> %kept): 0->90%, 300->75%, 600->60%, 900->50%, 1200->42%, 1500->36%, 2100->31%, 2700->27%, 3300->24%, 3900->21%, 4500->18%
+
+COLLAPSE TRIGGER: step 0 (within the 90% stage; stage starts at step 0).
+  raw enc std at trigger: L1=0.0095  L2=0.0076
+  max pre-clip grad norm in 20 steps before trigger: 0.271
+  -> EROSION (no large spike; gradual decline)
+
+Saved experiments/latest/hypernetwork/topk_curriculum/collapse_probe.png

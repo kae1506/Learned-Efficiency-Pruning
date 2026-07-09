@@ -1,0 +1,49 @@
+Device: cpu
+Total hidden neurons: 2048  (target: prune 1638)
+Orig acc on eval batch: 99.61%
+  ep    1 | return=-0.6289 | final_acc=36.72% | drop=62.89% | frac_pruned=80.5% | steps=103 | loss=-62.1706
+  ep   10 | return=-0.4570 | final_acc=53.91% | drop=45.70% | frac_pruned=80.5% | steps=103 | loss=-26.8064
+  ep   20 | return=-0.4180 | final_acc=57.81% | drop=41.80% | frac_pruned=80.5% | steps=103 | loss=-8.3637
+    [greedy] final_acc=31.25% | frac_pruned=80.5%
+  ep   30 | return=-0.5078 | final_acc=48.83% | drop=50.78% | frac_pruned=80.5% | steps=103 | loss=-12.7577
+  ep   40 | return=-0.4922 | final_acc=50.39% | drop=49.22% | frac_pruned=80.5% | steps=103 | loss=-4.8728
+  ep   50 | return=-0.4180 | final_acc=57.81% | drop=41.80% | frac_pruned=80.5% | steps=103 | loss=+6.6061
+    [greedy] final_acc=5.47% | frac_pruned=80.5%
+  ep   60 | return=-0.2656 | final_acc=73.05% | drop=26.56% | frac_pruned=80.5% | steps=103 | loss=+18.9319
+  ep   70 | return=-0.5156 | final_acc=48.05% | drop=51.56% | frac_pruned=80.5% | steps=103 | loss=-9.8303
+    [greedy] final_acc=5.86% | frac_pruned=80.5%
+  ep   80 | return=-0.2734 | final_acc=72.27% | drop=27.34% | frac_pruned=80.5% | steps=103 | loss=+18.3236
+  ep   90 | return=-0.3164 | final_acc=67.97% | drop=31.64% | frac_pruned=80.5% | steps=103 | loss=+5.0300
+  ep  100 | return=-0.2891 | final_acc=70.70% | drop=28.91% | frac_pruned=80.5% | steps=103 | loss=+8.0020
+    [greedy] final_acc=35.55% | frac_pruned=80.5%
+  ep  110 | return=-0.1797 | final_acc=81.64% | drop=17.97% | frac_pruned=80.5% | steps=103 | loss=+13.9463
+  ep  120 | return=-0.1289 | final_acc=86.72% | drop=12.89% | frac_pruned=80.5% | steps=103 | loss=+11.2025
+    [greedy] final_acc=88.67% | frac_pruned=80.5%
+  ep  130 | return=-0.0859 | final_acc=91.02% | drop=8.59% | frac_pruned=80.5% | steps=103 | loss=+10.8652
+  ep  140 | return=-0.0820 | final_acc=91.41% | drop=8.20% | frac_pruned=80.5% | steps=103 | loss=+8.6971
+  ep  150 | return=-0.0508 | final_acc=94.53% | drop=5.08% | frac_pruned=80.5% | steps=103 | loss=+9.9654
+    [greedy] final_acc=92.19% | frac_pruned=80.5%
+  ep  160 | return=-0.0820 | final_acc=91.41% | drop=8.20% | frac_pruned=80.5% | steps=103 | loss=+5.3060
+  ep  170 | return=-0.1797 | final_acc=81.64% | drop=17.97% | frac_pruned=80.5% | steps=103 | loss=-5.4505
+    [greedy] final_acc=88.28% | frac_pruned=80.5%
+  ep  180 | return=-0.1836 | final_acc=81.25% | drop=18.36% | frac_pruned=80.5% | steps=103 | loss=-4.9359
+  ep  190 | return=-0.2109 | final_acc=78.52% | drop=21.09% | frac_pruned=80.5% | steps=103 | loss=-5.4136
+  ep  200 | return=-0.4180 | final_acc=57.81% | drop=41.80% | frac_pruned=80.5% | steps=103 | loss=-23.3324
+    [greedy] final_acc=33.20% | frac_pruned=80.5%
+  ep  210 | return=-0.6758 | final_acc=32.03% | drop=67.58% | frac_pruned=80.5% | steps=103 | loss=-36.6644
+  ep  220 | return=-0.3242 | final_acc=67.19% | drop=32.42% | frac_pruned=80.5% | steps=103 | loss=+5.2068
+    [greedy] final_acc=83.59% | frac_pruned=80.5%
+  ep  230 | return=-0.1875 | final_acc=80.86% | drop=18.75% | frac_pruned=80.5% | steps=103 | loss=+14.6887
+  ep  240 | return=-0.1055 | final_acc=89.06% | drop=10.55% | frac_pruned=80.5% | steps=103 | loss=+16.2078
+  ep  250 | return=-0.1875 | final_acc=80.86% | drop=18.75% | frac_pruned=80.5% | steps=103 | loss=+5.5886
+    [greedy] final_acc=80.86% | frac_pruned=80.5%
+  ep  260 | return=-0.3086 | final_acc=68.75% | drop=30.86% | frac_pruned=80.5% | steps=103 | loss=-7.7761
+  ep  270 | return=-0.1641 | final_acc=83.20% | drop=16.41% | frac_pruned=80.5% | steps=103 | loss=+8.9267
+    [greedy] final_acc=71.09% | frac_pruned=80.5%
+  ep  280 | return=-0.1445 | final_acc=85.16% | drop=14.45% | frac_pruned=80.5% | steps=103 | loss=+10.1634
+  ep  290 | return=-0.1914 | final_acc=80.47% | drop=19.14% | frac_pruned=80.5% | steps=103 | loss=+4.5095
+  ep  300 | return=-0.1797 | final_acc=81.64% | drop=17.97% | frac_pruned=80.5% | steps=103 | loss=+6.4360
+    [greedy] final_acc=69.53% | frac_pruned=80.5%
+
+Saved plot to experiments/latest/rl_pruner.png
+Saved summary to experiments/latest/summary_rl_pruner.txt

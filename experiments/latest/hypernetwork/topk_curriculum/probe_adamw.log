@@ -1,0 +1,25 @@
+bound_context=True | node_norm=std_detach | AdamW wd=0.01
+baseline 98.06% | n_total 2048 | total_steps 5100
+  keep 90% K=1843 surv=1843 (L1= 819,L2=1024) drop=  0.58pp rawstd=(0.209,0.644)
+  keep 75% K=1536 surv=1536 (L1= 540,L2= 996) drop=  0.83pp rawstd=(0.605,2.940)
+  keep 60% K=1229 surv=1229 (L1= 302,L2= 927) drop=  1.79pp rawstd=(2.375,8.963)
+  keep 50% K=1024 surv=1024 (L1= 170,L2= 854) drop=  4.19pp rawstd=(5.167,22.858)
+  keep 42% K= 860 surv= 860 (L1=  94,L2= 766) drop= 11.68pp rawstd=(9.651,37.455)
+  keep 36% K= 737 surv= 737 (L1= 328,L2= 409) drop=  7.58pp rawstd=(17.887,53.826)
+  keep 31% K= 635 surv= 635 (L1= 271,L2= 364) drop=  8.59pp rawstd=(30.561,81.979)
+  keep 27% K= 553 surv= 553 (L1= 234,L2= 319) drop= 10.09pp rawstd=(39.050,92.913)
+  keep 24% K= 492 surv= 492 (L1= 213,L2= 279) drop= 11.03pp rawstd=(49.273,106.648)
+  keep 21% K= 430 surv= 430 (L1= 197,L2= 233) drop= 10.90pp rawstd=(60.957,123.087)
+  keep 18% K= 369 surv= 369 (L1= 173,L2= 196) drop= 12.18pp rawstd=(72.676,140.578)
+
+STE-TOP-K COLLAPSE PROBE (v4 config: centered STE, global T, std_detach, carry-Adam)
+baseline 98.06%  n_total 2048  seed 0
+
+Stage boundaries (global_step -> %kept): 0->90%, 300->75%, 600->60%, 900->50%, 1200->42%, 1500->36%, 2100->31%, 2700->27%, 3300->24%, 3900->21%, 4500->18%
+
+COLLAPSE TRIGGER: step 0 (within the 90% stage; stage starts at step 0).
+  raw enc std at trigger: L1=0.0095  L2=0.0076
+  max pre-clip grad norm in 20 steps before trigger: 0.271
+  -> EROSION (no large spike; gradual decline)
+
+Saved experiments/latest/hypernetwork/topk_curriculum/collapse_probe_adamw.png

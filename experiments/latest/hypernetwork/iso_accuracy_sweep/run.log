@@ -1,0 +1,36 @@
+Device: cpu  |  target drop = 2.0pp
+
+=== narrow [205,205] ===
+  n_total=410  baseline=98.21%  @≤2.0pp: kept=360  pruned=12.2%
+
+=== medium [1024,1024] ===
+  n_total=2048  baseline=98.06%  @≤2.0pp: kept=1179  pruned=42.4%
+
+=== deep [512x4] ===
+  n_total=2048  baseline=98.32%  @≤2.0pp: kept=744  pruned=63.7%
+
+=== wide [2048] ===
+  n_total=2048  baseline=98.16%  @≤2.0pp: kept=806  pruned=60.6%
+
+Saved plot to experiments/latest/hypernetwork/iso_accuracy_sweep/plot.png
+==============================================================================
+ISO-ACCURACY SURVIVOR SWEEP — absolute survivors at ≤2.0pp drop
+Date: 2026-06-02 22:03:56
+==============================================================================
+
+One BiLSTM pruner per model; global threshold sweep on continuous scores.
+Question: do absolute survivor counts CONVERGE (absolute task floor) or
+SCALE with starting width (network-relative)?
+
+               Model |  Total | Baseline |  Kept@2pp |  % Pruned
+------------------------------------------------------------------------------
+    narrow [205,205] |    410 |   98.21% |       360 |     12.2%
+  medium [1024,1024] |   2048 |   98.06% |      1179 |     42.4%
+        deep [512x4] |   2048 |   98.32% |       744 |     63.7%
+         wide [2048] |   2048 |   98.16% |       806 |     60.6%
+------------------------------------------------------------------------------
+
+READ: kept@2pp similar across all 4 → ABSOLUTE task floor (minimal useful
+      subnet is task-determined; prune% is just starting distance above it).
+      kept@2pp grows with total → network-relative.
+==============================================================================

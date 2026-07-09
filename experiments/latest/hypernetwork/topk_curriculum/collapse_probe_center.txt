@@ -1,0 +1,9 @@
+STE-TOP-K COLLAPSE PROBE (v4 config: centered STE, global T, std_detach, carry-Adam)
+baseline 98.06%  n_total 2048  seed 0
+
+Stage boundaries (global_step -> %kept): 0->90%, 300->75%, 600->60%, 900->50%, 1200->42%, 1500->36%, 2100->31%, 2700->27%, 3300->24%, 3900->21%, 4500->18%
+
+COLLAPSE TRIGGER: step 0 (within the 90% stage; stage starts at step 0).
+  raw enc std at trigger: L1=0.0095  L2=0.0076
+  max pre-clip grad norm in 20 steps before trigger: 0.003
+  -> EROSION (no large spike; gradual decline)

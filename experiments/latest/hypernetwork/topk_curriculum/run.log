@@ -1,0 +1,61 @@
+Device: cpu  |  schedule(%kept)=[90, 75, 60, 50, 42, 36, 31, 27, 24, 21, 18]  |  seeds=[0, 1]
+
+Baseline acc: 98.06%   n_hidden=2048
+
+  seed0 keep 90% (K=1843): survivors=1843 pruned= 10.0% drop= -0.05pp steps=236 [ 4.5s]
+  seed0 keep 75% (K=1536): survivors=1536 pruned= 25.0% drop=  0.85pp steps=177 [ 3.3s]
+  seed0 keep 60% (K=1229): survivors=1229 pruned= 40.0% drop=  1.84pp steps=150 [ 4.2s]
+  seed0 keep 50% (K=1024): survivors=1024 pruned= 50.0% drop=  5.52pp steps=218 [ 3.2s]
+  seed0 keep 42% (K= 860): survivors= 860 pruned= 58.0% drop= 13.48pp steps=214 [ 4.4s]
+  seed0 keep 36% (K= 737): survivors= 737 pruned= 64.0% drop= 20.96pp steps=150 [ 2.7s]
+  seed0 keep 31% (K= 635): survivors= 635 pruned= 69.0% drop= 25.93pp steps=222 [ 3.0s]
+  seed0 keep 27% (K= 553): survivors= 553 pruned= 73.0% drop= 32.59pp steps=150 [ 4.1s]
+  seed0 keep 24% (K= 492): survivors= 492 pruned= 76.0% drop= 38.19pp steps=150 [ 2.5s]
+  seed0 keep 21% (K= 430): survivors= 430 pruned= 79.0% drop= 48.89pp steps=150 [ 2.5s]
+  seed0 keep 18% (K= 369): survivors= 369 pruned= 82.0% drop= 53.00pp steps=172 [ 3.9s]
+  seed1 keep 90% (K=1843): survivors=1843 pruned= 10.0% drop= -0.17pp steps=153 [ 3.4s]
+  seed1 keep 75% (K=1536): survivors=1536 pruned= 25.0% drop=  0.77pp steps=200 [ 2.8s]
+  seed1 keep 60% (K=1229): survivors=1229 pruned= 40.0% drop=  2.00pp steps=294 [ 4.9s]
+  seed1 keep 50% (K=1024): survivors=1024 pruned= 50.0% drop=  4.18pp steps=150 [ 2.5s]
+  seed1 keep 42% (K= 860): survivors= 860 pruned= 58.0% drop= 12.02pp steps=150 [ 3.8s]
+  seed1 keep 36% (K= 737): survivors= 737 pruned= 64.0% drop= 18.70pp steps=204 [ 2.8s]
+  seed1 keep 31% (K= 635): survivors= 635 pruned= 69.0% drop= 26.21pp steps=195 [ 2.6s]
+  seed1 keep 27% (K= 553): survivors= 553 pruned= 73.0% drop= 38.93pp steps=150 [ 4.0s]
+  seed1 keep 24% (K= 492): survivors= 492 pruned= 76.0% drop= 43.53pp steps=164 [ 2.6s]
+  seed1 keep 21% (K= 430): survivors= 430 pruned= 79.0% drop= 51.36pp steps=150 [ 2.4s]
+  seed1 keep 18% (K= 369): survivors= 369 pruned= 82.0% drop= 62.10pp steps=150 [ 3.8s]
+
+======================================================================
+STE-TOP-K CURRICULUM — medium [1024,1024] MNIST MLP
+======================================================================
+Baseline acc        : 98.06%
+Hidden neurons      : 2048
+Schedule (% kept)   : [90, 75, 60, 50, 42, 36, 31, 27, 24, 21, 18]
+Seeds               : [0, 1]
+λ entirely removed  : loss = CE_pruned - CE_orig  (no sparsity term)
+Hacks dropped       : +2.0 bias, tanh context bound   (LayerNorm kept)
+Per-stage early-stop: min=150 max=400 patience=100 eps_ce=0.003
+----------------------------------------------------------------------
+ %kept |     K | survivors |  %pruned |  drop(pp) |  steps
+----------------------------------------------------------------------
+    90 |  1843 |      1843 |    10.0% |  -0.11±0.06 |    194
+    75 |  1536 |      1536 |    25.0% |   0.81±0.04 |    188
+    60 |  1229 |      1229 |    40.0% |   1.92±0.08 |    222
+    50 |  1024 |      1024 |    50.0% |   4.85±0.67 |    184
+    42 |   860 |       860 |    58.0% |  12.75±0.73 |    182
+    36 |   737 |       737 |    64.0% |  19.83±1.13 |    177
+    31 |   635 |       635 |    69.0% |  26.07±0.14 |    208
+    27 |   553 |       553 |    73.0% |  35.76±3.17 |    150
+    24 |   492 |       492 |    76.0% |  40.86±2.67 |    157
+    21 |   430 |       430 |    79.0% |  50.12±1.24 |    150
+    18 |   369 |       369 |    82.0% |  57.55±4.55 |    161
+----------------------------------------------------------------------
+Total curriculum steps (mean/seed): 1974  (one-shot λ baseline was 1000 + a per-model sw sweep)
+
+ISO-ACCURACY @2pp (interpolated):
+  top-K curriculum : 1223 survivors  (40.3% pruned)
+  λ floor (ref)    : 490 survivors  (76.1% pruned)
+  delta            : +733 survivors (differs from λ floor)
+======================================================================
+
+Saved: experiments/latest/hypernetwork/topk_curriculum/plot.png

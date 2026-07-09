@@ -1,0 +1,33 @@
+============================================================
+SEQUENTIAL PRUNING SUMMARY
+Date: 2026-03-15 21:34:36
+============================================================
+
+BASE MODEL
+  Architecture  : MLP 784 -> 1024 -> 1024 -> 10
+  Total hidden  : 2048 neurons
+
+STAGE 1 — Activation Pruning
+  Lambda        : 0.5
+  Calib batches : 5
+  Layer 1       : 866/1024 pruned (84.6%)
+  Layer 2       : 557/1024 pruned (54.4%)
+  Total pruned  : 1423/2048 (69.5%)
+  Accuracy      : 94.69%
+  Accuracy drop : 3.28%
+
+STAGE 2 — Learned Pruning (on activation-pruned model)
+  Steps         : 1000
+  Sparsity wt   : 0.05
+  Gated off     : 1501/2048 (73.3%)
+  New pruned    : 78/2048
+  Total pruned  : 1501/2048 (73.3%)
+  Accuracy      : 96.41%
+  Accuracy drop : 1.56%
+
+CUMULATIVE SUMMARY
+  Baseline acc  : 97.97%
+  After Stage 1 : 94.69%  (1423/2048 neurons, 69.5% pruned)
+  After Stage 2 : 96.41%  (1501/2048 neurons, 73.3% pruned)
+
+============================================================

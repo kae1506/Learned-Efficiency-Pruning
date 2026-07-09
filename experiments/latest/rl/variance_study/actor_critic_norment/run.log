@@ -1,0 +1,53 @@
+Device: cpu  |  seeds=[0, 1, 2]  |  episodes=500  |  norm_entropy=True
+
+Baseline test acc (full set): 98.06%
+
+━━━━━ seed 0 (1/3) ━━━━━
+  best_drop=4.85pp  pruned=80.47%  [563.1s]
+  drop@[50,100,...]: e10:74.7  e60:41.0  e110:24.2  e160:10.7  e210:10.7  e260:6.3  e310:5.0  e360:5.4  e410:5.9  e460:5.6
+
+━━━━━ seed 1 (2/3) ━━━━━
+  best_drop=3.70pp  pruned=80.47%  [571.4s]
+  drop@[50,100,...]: e10:6.2  e60:4.7  e110:10.3  e160:5.5  e210:7.4  e260:7.5  e310:7.4  e360:42.0  e410:53.6  e460:42.9
+
+━━━━━ seed 2 (3/3) ━━━━━
+  best_drop=10.66pp  pruned=80.47%  [653.7s]
+  drop@[50,100,...]: e10:18.3  e60:82.7  e110:14.2  e160:15.2  e210:64.1  e260:80.3  e310:53.5  e360:62.2  e410:76.2  e460:58.6
+
+Saved convergence plot to experiments/latest/multi_seed_ac_norment/convergence.png
+====================================================================================
+ACTOR-CRITIC + NORMALISED ENTROPY — convergence study
+Date: 2026-06-01 17:29:40
+Seeds: [0, 1, 2]   Episodes: 500   normalize_entropy=True
+====================================================================================
+
+Base model               : MLP 784 -> 1024 -> 1024 -> 10
+Baseline test accuracy   : 98.06%
+Entropy coef             : 0.01  (on normalised entropy ∈ [0,1])
+Prune target             : 80%
+
+BEST-MASK FULL-TEST DROP (over all checkpoints)
+------------------------------------------------------------------------------------
+Seed |  % Pruned |  Best drop (pp)
+------------------------------------------------------------------------------------
+   0 |    80.47% |           4.85
+   1 |    80.47% |           3.70
+   2 |    80.47% |          10.66
+------------------------------------------------------------------------------------
+mean |           |     6.40 ± 3.73
+
+CONVERGENCE ANALYSIS (mean running-best drop across seeds)
+------------------------------------------------------------------------------------
+  Final (ep 500) drop          : 6.40 pp
+  Drop at ep 300               : 6.52 pp
+  Improvement ep 300->500     : 0.12 pp
+  Plateau episode (<0.3pp left): 270
+
+  VERDICT: accuracy drop does NOT meaningfully change after ep 300 (only 0.12pp gained from 300->500).
+
+Per-checkpoint mean running-best drop (pp):
+  e10:33.07  e20:28.89  e30:25.87  e40:25.87  e50:21.98  e60:20.99  e70:20.54  e80:17.39  e90:15.89  e100:10.27  e110:10.27  e120:9.11  e130:7.07  e140:7.07  e150:7.07  e160:7.07  e170:7.07  e180:7.07  e190:7.07  e200:7.07  e210:7.07  e220:7.07  e230:7.07  e240:7.07  e250:6.77  e260:6.77  e270:6.67  e280:6.54  e290:6.54  e300:6.52  e310:6.46  e320:6.46  e330:6.46  e340:6.46  e350:6.46  e360:6.46  e370:6.46  e380:6.46  e390:6.46  e400:6.46  e410:6.46  e420:6.46  e430:6.46  e440:6.46  e450:6.46  e460:6.46  e470:6.46  e480:6.40  e490:6.40  e500:6.40
+
+PRIORS (5-seed):  BiLSTM 3.68±0.79   REINFORCE 6.01±4.17   AC(raw-ent) 4.71±1.55
+
+====================================================================================

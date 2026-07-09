@@ -1,0 +1,82 @@
+Device: cpu  |  target ≤2.0pp  |  seeds=[0, 1]
+
+=== narrow [205,205]  (sw grid [0.01, 0.03, 0.06, 0.1, 0.2]) ===
+  seed 0 sw=0.01 : drop=  0.10pp  survivors= 375/410  pruned=  8.5%
+  seed 0 sw=0.03 : drop= -0.01pp  survivors= 400/410  pruned=  2.4%
+  seed 0 sw=0.06 : drop=  1.33pp  survivors= 316/410  pruned= 22.9%
+  seed 0 sw=0.1  : drop=  2.10pp  survivors= 274/410  pruned= 33.2%
+  seed 0 sw=0.2  : drop=  4.67pp  survivors= 247/410  pruned= 39.8%
+  → seed 0 best ≤2.0pp: survivors=316  sw=0.06  drop=1.33pp
+
+  seed 1 sw=0.01 : drop=  0.27pp  survivors= 382/410  pruned=  6.8%
+  seed 1 sw=0.03 : drop=  0.39pp  survivors= 365/410  pruned= 11.0%
+  seed 1 sw=0.06 : drop=  1.94pp  survivors= 307/410  pruned= 25.1%
+  seed 1 sw=0.1  : drop=  1.68pp  survivors= 275/410  pruned= 32.9%
+  seed 1 sw=0.2  : drop=  4.68pp  survivors= 244/410  pruned= 40.5%
+  → seed 1 best ≤2.0pp: survivors=275  sw=0.1  drop=1.68pp
+
+=== medium [1024,1024]  (sw grid [0.15, 0.25, 0.3, 0.4, 0.55]) ===
+  seed 0 sw=0.15 : drop=  0.73pp  survivors= 612/2048  pruned= 70.1%
+  seed 0 sw=0.25 : drop=  1.14pp  survivors= 525/2048  pruned= 74.4%
+  seed 0 sw=0.3  : drop=  1.72pp  survivors= 494/2048  pruned= 75.9%
+  seed 0 sw=0.4  : drop=  2.30pp  survivors= 462/2048  pruned= 77.4%
+  seed 0 sw=0.55 : drop=  3.63pp  survivors= 416/2048  pruned= 79.7%
+  → seed 0 best ≤2.0pp: survivors=494  sw=0.3  drop=1.72pp
+
+  seed 1 sw=0.15 : drop=  0.85pp  survivors= 603/2048  pruned= 70.6%
+  seed 1 sw=0.25 : drop=  1.40pp  survivors= 507/2048  pruned= 75.2%
+  seed 1 sw=0.3  : drop=  1.69pp  survivors= 485/2048  pruned= 76.3%
+  seed 1 sw=0.4  : drop=  2.41pp  survivors= 447/2048  pruned= 78.2%
+  seed 1 sw=0.55 : drop=  3.52pp  survivors= 407/2048  pruned= 80.1%
+  → seed 1 best ≤2.0pp: survivors=485  sw=0.3  drop=1.69pp
+
+=== deep [512x4]  (sw grid [0.5, 0.8, 1.2, 1.8, 2.5]) ===
+  seed 0 sw=0.5  : drop=  1.09pp  survivors= 860/2048  pruned= 58.0%
+  seed 0 sw=0.8  : drop=  1.82pp  survivors= 814/2048  pruned= 60.3%
+  seed 0 sw=1.2  : drop=  6.82pp  survivors= 694/2048  pruned= 66.1%
+  seed 0 sw=1.8  : drop= 80.64pp  survivors=  94/2048  pruned= 95.4%
+  seed 0 sw=2.5  : drop= 88.58pp  survivors=   0/2048  pruned=100.0%
+  → seed 0 best ≤2.0pp: survivors=814  sw=0.8  drop=1.82pp
+
+  seed 1 sw=0.5  : drop=  1.00pp  survivors= 855/2048  pruned= 58.3%
+  seed 1 sw=0.8  : drop=  1.69pp  survivors= 815/2048  pruned= 60.2%
+  seed 1 sw=1.2  : drop=  6.95pp  survivors= 693/2048  pruned= 66.2%
+  seed 1 sw=1.8  : drop= 88.58pp  survivors=   0/2048  pruned=100.0%
+  seed 1 sw=2.5  : drop= 88.58pp  survivors=   0/2048  pruned=100.0%
+  → seed 1 best ≤2.0pp: survivors=815  sw=0.8  drop=1.69pp
+
+=== wide [2048]  (sw grid [0.05, 0.1, 0.2, 0.3, 0.45]) ===
+  seed 0 sw=0.05 : drop=  0.69pp  survivors= 402/2048  pruned= 80.4%
+  seed 0 sw=0.1  : drop=  1.55pp  survivors= 312/2048  pruned= 84.8%
+  seed 0 sw=0.2  : drop=  3.15pp  survivors= 212/2048  pruned= 89.6%
+  seed 0 sw=0.3  : drop=  3.90pp  survivors= 182/2048  pruned= 91.1%
+  seed 0 sw=0.45 : drop=  8.66pp  survivors= 143/2048  pruned= 93.0%
+  → seed 0 best ≤2.0pp: survivors=312  sw=0.1  drop=1.55pp
+
+  seed 1 sw=0.05 : drop=  0.83pp  survivors= 393/2048  pruned= 80.8%
+  seed 1 sw=0.1  : drop=  1.13pp  survivors= 317/2048  pruned= 84.5%
+  seed 1 sw=0.2  : drop=  3.01pp  survivors= 204/2048  pruned= 90.0%
+  seed 1 sw=0.3  : drop=  3.84pp  survivors= 170/2048  pruned= 91.7%
+  seed 1 sw=0.45 : drop=  5.53pp  survivors= 139/2048  pruned= 93.2%
+  → seed 1 best ≤2.0pp: survivors=317  sw=0.1  drop=1.13pp
+
+Saved plot to experiments/latest/hypernetwork/iso_accuracy_retrain/plot.png
+================================================================================
+ISO-ACCURACY ARCHITECTURE COMPARISON (retrained per sw) — survivors @ ≤2.0pp
+Date: 2026-06-02 22:22:15
+Seeds: [0, 1]   (fresh pruner retrained at every sw, not threshold-swept)
+================================================================================
+
+               Model |  Total | Baseline |    Survivors@2pp |  % Pruned |         sw
+--------------------------------------------------------------------------------
+    narrow [205,205] |    410 |   98.21% |    296 ± 20     |   27.9±5.0 % |   0.06/0.1
+  medium [1024,1024] |   2048 |   98.06% |    490 ± 4      |   76.1±0.2 % |    0.3/0.3
+        deep [512x4] |   2048 |   98.32% |    814 ± 0      |   60.2±0.0 % |    0.8/0.8
+         wide [2048] |   2048 |   98.16% |    314 ± 2      |   84.6±0.1 % |    0.1/0.1
+--------------------------------------------------------------------------------
+
+vs threshold-sweep proxy (iso_accuracy_sweep): narrow 360 / medium 1179 / deep 744 / wide 806
+
+READ: survivors@2pp similar across all → absolute task floor.
+      differ by architecture → prunability is shape-dependent (redundancy distribution).
+================================================================================

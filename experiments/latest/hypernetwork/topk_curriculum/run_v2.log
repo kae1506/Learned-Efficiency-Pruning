@@ -1,0 +1,19 @@
+Device: cpu  |  centered STE, T 4.0->1.0/stage  |  schedule(%kept)=[90, 75, 60, 50, 42, 36, 31, 27, 24, 21, 18]  |  seeds=[0, 1]
+
+Baseline acc: 98.06%   n_hidden=2048
+
+  seed0 keep 90% (K=1843): survivors=1843 pruned= 10.0% drop=  0.38pp steps=300 [ 4.5s]
+  seed0 keep 75% (K=1536): survivors=1536 pruned= 25.0% drop=  0.45pp steps=300 [ 5.0s]
+  seed0 keep 60% (K=1229): survivors=1229 pruned= 40.0% drop=  1.21pp steps=300 [ 3.6s]
+  seed0 keep 50% (K=1024): survivors=1024 pruned= 50.0% drop= 88.32pp steps=300 [ 5.0s]
+  seed0 keep 42% (K= 860): survivors= 860 pruned= 58.0% drop= 88.32pp steps=300 [ 5.1s]
+  seed0 keep 36% (K= 737): survivors= 746 pruned= 63.6% drop= 88.32pp steps=600 [ 7.6s]
+  seed0 keep 31% (K= 635): survivors= 635 pruned= 69.0% drop= 88.32pp steps=600 [ 7.0s]
+  seed0 keep 27% (K= 553): survivors= 553 pruned= 73.0% drop= 88.32pp steps=600 [ 8.2s]
+  seed0 keep 24% (K= 492): survivors= 492 pruned= 76.0% drop= 88.32pp steps=600 [ 7.1s]
+  seed0 keep 21% (K= 430): survivors= 430 pruned= 79.0% drop= 88.32pp steps=600 [ 6.9s]
+  seed0 keep 18% (K= 369): survivors= 369 pruned= 82.0% drop= 88.32pp steps=600 [ 7.1s]
+  seed1 keep 90% (K=1843): survivors=1843 pruned= 10.0% drop=  0.76pp steps=300 [ 4.6s]
+  seed1 keep 75% (K=1536): survivors=1536 pruned= 25.0% drop=  0.51pp steps=300 [ 4.8s]
+  seed1 keep 60% (K=1229): survivors=1229 pruned= 40.0% drop=  1.60pp steps=300 [ 3.5s]
+  seed1 keep 50% (K=1024): survivors=1024 pruned= 50.0% drop= 88.32pp steps=300 [ 5.0s]

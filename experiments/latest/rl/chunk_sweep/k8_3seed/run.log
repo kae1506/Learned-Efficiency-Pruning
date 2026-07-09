@@ -1,0 +1,27 @@
+Device: cpu  |  chunks=[8]  |  seeds=[0, 1, 2]  |  episodes=200
+
+Baseline test acc (full set): 98.06%
+
+  k= 8 seed 0: pruned=80.08%  drop=2.47pp  ratio=0.378  [545s]
+  k= 8 seed 1: pruned=80.08%  drop=4.89pp  ratio=0.402  [426s]
+  k= 8 seed 2: pruned=80.08%  drop=9.26pp  ratio=0.515  [479s]
+
+Saved plot to experiments/latest/rl/chunk_sweep/k8_3seed/plot.png
+==============================================================================
+k=8 vs k=16 — actor-critic, 3 seeds, 250 episodes, 80% target, raw entropy
+Date: 2026-06-02 00:28:31
+==============================================================================
+
+Baseline test accuracy: 98.06%   (equal episode budget — no confound)
+
+  k | seed |  % Pruned |  Drop pp |   Ratio
+------------------------------------------------------------------------------
+  8 |    0 |    80.08% |    2.47  |   0.378
+  8 |    1 |    80.08% |    4.89  |   0.402
+  8 |    2 |    80.08% |    9.26  |   0.515
+  8 | mean |           |    5.54±3.44 | 0.432±0.073
+------------------------------------------------------------------------------
+
+PRIORS: AC k=16 5-seed 4.71±1.55 | BiLSTM 5-seed 3.68±0.79 | chunk_sweep k=8 1-seed 2.68
+
+==============================================================================

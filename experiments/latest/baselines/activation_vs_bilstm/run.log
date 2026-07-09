@@ -1,0 +1,29 @@
+tee: experiments/latest/compare_act_vs_bilstm/run.log: No such file or directory
+Device: cpu
+Baseline test accuracy (full set): 98.06%
+
+=== Activation pruning sweep ===
+  Calibration: 5 batches
+
+  lambda= 0.10 | pruned= 34.5% | acc=98.00% | drop= 0.06%
+  lambda= 0.20 | pruned= 45.8% | acc=97.44% | drop= 0.62%
+  lambda= 0.30 | pruned= 54.7% | acc=96.66% | drop= 1.40%
+  lambda= 0.40 | pruned= 62.6% | acc=92.79% | drop= 5.27%
+  lambda= 0.50 | pruned= 69.9% | acc=85.45% | drop=12.61%
+  lambda= 0.70 | pruned= 79.9% | acc=67.35% | drop=30.71%
+  lambda= 1.00 | pruned= 89.5% | acc=50.25% | drop=47.81%
+  lambda= 1.50 | pruned= 98.0% | acc= 9.74% | drop=88.32%
+
+=== BiLSTM hypernetwork pruning sweep ===
+  Steps per run: 600
+
+  sw= 0.01 | pruned=  5.0% | acc=98.34% | drop=-0.28%  [ 14.4s]
+  sw= 0.03 | pruned= 25.6% | acc=97.90% | drop= 0.16%  [ 13.5s]
+  sw= 0.05 | pruned= 51.7% | acc=98.00% | drop= 0.06%  [ 13.3s]
+  sw= 0.10 | pruned= 64.7% | acc=97.79% | drop= 0.27%  [ 14.6s]
+  sw= 0.20 | pruned= 72.1% | acc=96.99% | drop= 1.07%  [ 16.4s]
+  sw= 0.30 | pruned= 75.1% | acc=96.08% | drop= 1.98%  [ 13.4s]
+  sw= 0.50 | pruned= 78.2% | acc=94.70% | drop= 3.36%  [ 13.2s]
+
+Saved plot to experiments/latest/compare_act_vs_bilstm/plot.png
+Saved summary to experiments/latest/compare_act_vs_bilstm/summary.txt

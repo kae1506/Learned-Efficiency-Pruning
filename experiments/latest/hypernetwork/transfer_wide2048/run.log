@@ -1,0 +1,44 @@
+Device: cpu
+
+=== Training wide model [2048] (784 -> 2048 -> 10) ===
+  [train wide] epoch  1 | train acc 0.9521 | test acc 0.9655
+  [train wide] epoch  2 | train acc 0.9827 | test acc 0.9789
+  [train wide] epoch  3 | train acc 0.9892 | test acc 0.9781
+  [train wide] epoch  4 | train acc 0.9926 | test acc 0.9807
+  [train wide] epoch  5 | train acc 0.9948 | test acc 0.9796
+  [train wide] epoch  6 | train acc 0.9956 | test acc 0.9817
+  [train wide] epoch  7 | train acc 0.9963 | test acc 0.9821
+  [train wide] epoch  8 | train acc 0.9962 | test acc 0.9830
+  [train wide] epoch  9 | train acc 0.9970 | test acc 0.9796
+  [train wide] epoch 10 | train acc 0.9974 | test acc 0.9816
+  saved wide model to experiments/checkpoints/mnist_wide2048.pt
+
+Wide model: 1 hidden layer(s), 2048 hidden neurons total
+Baseline test acc (full set): 98.16%
+
+=== BiLSTM pruner, 3 seeds, sw=0.5 ===
+  seed 0: pruned=93.65%  test_acc=89.10%  drop=9.06pp  ratio=0.309  [21s]
+  seed 1: pruned=93.12%  test_acc=91.69%  drop=6.47pp  ratio=0.264  [20s]
+  seed 2: pruned=93.65%  test_acc=91.73%  drop=6.43pp  ratio=0.290  [25s]
+========================================================================
+WIDE-MODEL BiLSTM TEST — 784 -> [2048] -> 10  (2048 hidden)
+Date: 2026-06-02 16:17:21
+========================================================================
+
+Same hidden-neuron budget as baseline (2048), different shape.
+Baseline (this wide model) test accuracy: 98.16%
+BiLSTM: sw=0.5, 1000 steps, 3 seeds
+
+seed |  % Pruned |  Test Acc |  Drop pp |   Ratio
+------------------------------------------------------------------------
+   0 |    93.65% |    89.10% |    9.06  |   0.309
+   1 |    93.12% |    91.69% |    6.47  |   0.264
+   2 |    93.65% |    91.73% |    6.43  |   0.290
+------------------------------------------------------------------------
+mean |   93.47±0.31 |           |    7.32±1.51 | 0.288±0.023
+
+BASELINE [1024,1024] (5-seed): 79.17±0.16% pruned, 3.68±0.79pp drop, ratio 0.308±0.007
+
+Interpretation: if wide-model prune% / drop match baseline → prunability is a
+property of the neuron BUDGET; if they differ → it depends on SHAPE/params.
+========================================================================

@@ -1,0 +1,13 @@
+CIFAR_big MLP pruner — λ = 0.02, seed = 0
+layers : [(1024, 8192), (512, 1024), (256, 512)]
+steps  : 980
+time   : 169.9s
+--------------------------------------------------------
+final avg keep gate           : 0.3613
+final % MLP neurons pruned    : 63.87%
+per-layer kept (fc1/fc2/fc3)  : [(166, 1024), (268, 512), (102, 256)]
+--------------------------------------------------------
+FULL test set (10000 imgs):
+  original (unpruned) acc     : 87.39%
+  pruned              acc     : 86.01%
+  drop                        : +1.38pp

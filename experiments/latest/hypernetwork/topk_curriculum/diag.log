@@ -1,0 +1,9 @@
+Device cpu | one-shot top-K, 1000 steps | baseline 98.06%
+      STE |     K |  %pruned |       drop(pp) mean[seeds]
+------------------------------------------------------------
+    plain |  1024 |    50.0% |  13.88  [12.82, 14.93]
+    plain |   492 |    76.0% |  42.69  [42.48, 42.89]
+ centered |  1024 |    50.0% |   2.09  [1.79, 2.38]
+ centered |   492 |    76.0% |  88.32  [88.32, 88.32]
+
+Saved experiments/latest/hypernetwork/topk_curriculum/diagnostic.txt

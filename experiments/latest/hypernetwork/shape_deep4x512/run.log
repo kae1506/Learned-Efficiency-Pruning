@@ -1,0 +1,45 @@
+Device: cpu
+
+=== Training deep model [512, 512, 512, 512] (784 -> 512->512->512->512 -> 10) ===
+  [train deep] epoch  1 | train acc 0.9316 | test acc 0.9656
+  [train deep] epoch  2 | train acc 0.9740 | test acc 0.9711
+  [train deep] epoch  3 | train acc 0.9817 | test acc 0.9780
+  [train deep] epoch  4 | train acc 0.9855 | test acc 0.9793
+  [train deep] epoch  5 | train acc 0.9872 | test acc 0.9763
+  [train deep] epoch  6 | train acc 0.9897 | test acc 0.9781
+  [train deep] epoch  7 | train acc 0.9911 | test acc 0.9794
+  [train deep] epoch  8 | train acc 0.9910 | test acc 0.9739
+  [train deep] epoch  9 | train acc 0.9919 | test acc 0.9750
+  [train deep] epoch 10 | train acc 0.9920 | test acc 0.9832
+  saved deep model to experiments/checkpoints/mnist_deep4x512.pt
+
+Deep model: 4 hidden layers, 2048 hidden neurons total
+Baseline test acc (full set): 98.32%
+
+=== BiLSTM pruner, 3 seeds, sw=0.5 ===
+  seed 0: pruned=58.01%  drop=1.09pp  ratio=0.328  [L1:62%  L2:43%  L3:66%  L4:61%]  [30s]
+  seed 1: pruned=58.25%  drop=1.00pp  ratio=0.345  [L1:64%  L2:38%  L3:63%  L4:68%]  [29s]
+  seed 2: pruned=58.35%  drop=1.07pp  ratio=0.320  [L1:66%  L2:45%  L3:57%  L4:66%]  [33s]
+========================================================================
+DEEP-MODEL BiLSTM TEST — 784 -> [512, 512, 512, 512] -> 10  (2048 hidden)
+Date: 2026-06-02 18:39:29
+========================================================================
+
+Same 2048 hidden-neuron budget, DEEP/NARROW shape (4 layers × 512).
+Baseline test accuracy: 98.32%
+BiLSTM: sw=0.5, 1000 steps, 3 seeds
+
+seed |  % Pruned |  Test Acc |  Drop pp |   Ratio
+------------------------------------------------------------------------
+   0 |    58.01% |    97.23% |    1.09  |   0.328
+   1 |    58.25% |    97.32% |    1.00  |   0.345
+   2 |    58.35% |    97.25% |    1.07  |   0.320
+------------------------------------------------------------------------
+mean |   58.20±0.18% |           |    1.05±0.05 | 0.331±0.013
+
+SHAPE COMPARISON (same 2048 neurons, sw=0.5):
+  wide   [2048]        : 93.47% pruned
+  medium [1024,1024]   : 79.17% pruned
+  deep   [512×4]       : 58.20% pruned  (this)
+
+========================================================================

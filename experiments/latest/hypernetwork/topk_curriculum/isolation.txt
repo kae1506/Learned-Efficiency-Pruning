@@ -1,0 +1,9 @@
+ISOLATION @ K=1024 (50% kept), 500 steps, baseline 98.06%
+centered STE throughout; anchor (none,T=1) was 2.09pp one-shot
+                run |  drop(pp) | survivors |   node-score std (L1,L2)
+----------------------------------------------------------------------
+  A none      T=1   |     2.00 |      1024 | (1.675, 2.800)
+  B std       T=1   |     0.43 |      1024 | (1.000, 1.000)
+  C std_detach T=1  |     2.14 |      1024 | (1.000, 1.000)
+  D none      T4->1 |     1.60 |      1024 | (3.826, 4.808)
+ E std_detach T4->1 |     1.69 |      1024 | (1.000, 1.000)

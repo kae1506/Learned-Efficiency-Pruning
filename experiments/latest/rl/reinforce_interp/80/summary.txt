@@ -1,0 +1,31 @@
+================================================================
+REINFORCE PRUNER + INTERPRETABILITY
+Date: 2026-05-29 15:35:43
+================================================================
+
+Base model         : MLP 784 -> 1024 -> 1024 -> 10
+Checkpoint         : experiments/checkpoints/mnist_model.pt
+Max prune fraction : 80%
+Episodes           : 300
+Prune chunk        : 16
+Orig eval-batch acc: 99.61%
+
+Best greedy (256-sample eval batch): ep 170  acc 87.11%  (drop 12.50%)
+
+Full test set     : baseline=98.06%  pruned=87.33%  drop=10.73pp
+
+OVERALL  pruned = 80.47%
+
+Per-layer breakdown:
+  Layer 1:   740/1024 pruned (72.27%)
+  Layer 2:   908/1024 pruned (88.67%)
+
+Mean post-ReLU activation (under ORIGINAL model):
+  Layer 1: alive 0.2622  dead 0.1987
+  Layer 2: alive 0.5289  dead 0.5404
+
+OVERALL  alive mean activation = 0.3395
+OVERALL  dead  mean activation = 0.3870
+OVERALL  ratio (dead/alive)    = 1.140
+
+================================================================

@@ -1,0 +1,44 @@
+Device: cpu
+
+=== Training narrow model [205, 205] (784 -> 205 -> 205 -> 10) ===
+  [train narrow] epoch  1 | train acc 0.9207 | test acc 0.9609
+  [train narrow] epoch  2 | train acc 0.9677 | test acc 0.9693
+  [train narrow] epoch  3 | train acc 0.9772 | test acc 0.9701
+  [train narrow] epoch  4 | train acc 0.9823 | test acc 0.9773
+  [train narrow] epoch  5 | train acc 0.9853 | test acc 0.9761
+  [train narrow] epoch  6 | train acc 0.9872 | test acc 0.9773
+  [train narrow] epoch  7 | train acc 0.9890 | test acc 0.9807
+  [train narrow] epoch  8 | train acc 0.9912 | test acc 0.9808
+  [train narrow] epoch  9 | train acc 0.9919 | test acc 0.9779
+  [train narrow] epoch 10 | train acc 0.9920 | test acc 0.9821
+
+Narrow model: 2 hidden layers, 410 hidden neurons total
+Baseline test acc (full set): 98.21%
+
+=== BiLSTM pruner, 3 seeds, sw=0.5 ===
+  seed 0: pruned=53.41%  kept=191/410  drop=14.98pp  ratio=0.637  [19s]
+  seed 1: pruned=52.44%  kept=195/410  drop=16.20pp  ratio=0.668  [26s]
+  seed 2: pruned=51.95%  kept=197/410  drop=16.25pp  ratio=0.629  [18s]
+==========================================================================
+NARROW-MODEL TEST — 784 -> [205, 205] -> 10  (410 hidden, ~20% of 2048)
+Date: 2026-06-02 20:36:48
+==========================================================================
+
+Baseline test accuracy: 98.21%
+BiLSTM: sw=0.5, 1000 steps, 3 seeds
+
+seed |  % Pruned |        Kept |  Test Acc |  Drop pp |   Ratio
+--------------------------------------------------------------------------
+   0 |    53.41% |  191/410   |    83.23% |   14.98  |   0.637
+   1 |    52.44% |  195/410   |    82.01% |   16.20  |   0.668
+   2 |    51.95% |  197/410   |    81.96% |   16.25  |   0.629
+--------------------------------------------------------------------------
+mean |   52.60±0.75% | 194±3 kept |           |   15.81±0.72 | 0.645±0.020
+
+REFERENCE: [1024,1024] (2048 total) prunes 79.17% → ~427 survive.
+
+INTERPRETATION:
+  - kept ≈ 410 (prunes ~0%)  → TASK-FLOOR: [205,205] already near minimal subnet.
+  - kept ≈ 86  (prunes ~79%) → FIXED-FRACTION: subnet size scales with net size.
+  - this run: kept ≈ 194 → see which it lands near.
+==========================================================================

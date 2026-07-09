@@ -1,0 +1,18 @@
+# CIFAR-10 base-model training config.
+data:
+  data_dir: ./data
+  batch_size: 256          # FLAGGED: 256 for better MPS GPU utilisation on the big model
+  num_workers: 2           # >0 so the dataloader is not the bottleneck on MPS
+
+model:
+  arch: big                # lenet (63K) | big (~10.4M, 3 conv + 4 fc)
+  output_dim: 10
+
+training:
+  epochs: 40               # FLAGGED: more epochs since augmentation slows memorisation; cosine needs a horizon
+  lr: 0.001                # AdamW initial step size (cosine-annealed to ~0)
+  weight_decay: 0.0005     # AdamW weight decay (regularisation)
+  augment: true            # RandomCrop(pad 4) + HorizontalFlip on train
+  momentum: 0.9            # unused
+
+device: mps                # timing the big model on MPS

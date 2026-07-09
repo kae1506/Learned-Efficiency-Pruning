@@ -1,0 +1,61 @@
+Device: cpu  |  centered STE, T 4.0->1.0/stage  |  schedule(%kept)=[90, 75, 60, 50, 42, 36, 31, 27, 24, 21, 18]  |  seeds=[0, 1]
+
+Baseline acc: 98.06%   n_hidden=2048
+
+  seed0 keep 90% (K=1843): survivors=1843 pruned= 10.0% drop=  0.35pp T=4.00->3.82 steps=300 [ 5.8s]
+  seed0 keep 75% (K=1536): survivors=1536 pruned= 25.0% drop=  1.31pp T=3.82->3.65 steps=300 [ 6.2s]
+  seed0 keep 60% (K=1229): survivors=1229 pruned= 40.0% drop=  2.74pp T=3.65->3.47 steps=300 [ 3.6s]
+  seed0 keep 50% (K=1024): survivors=1024 pruned= 50.0% drop=  3.49pp T=3.47->3.29 steps=300 [ 4.8s]
+  seed0 keep 42% (K= 860): survivors= 860 pruned= 58.0% drop=  4.71pp T=3.29->3.12 steps=300 [ 4.6s]
+  seed0 keep 36% (K= 737): survivors= 737 pruned= 64.0% drop=  4.79pp T=3.12->2.77 steps=600 [ 6.9s]
+  seed0 keep 31% (K= 635): survivors= 635 pruned= 69.0% drop=  4.96pp T=2.76->2.41 steps=600 [ 6.7s]
+  seed0 keep 27% (K= 553): survivors= 553 pruned= 73.0% drop=  5.73pp T=2.41->2.06 steps=600 [ 8.4s]
+  seed0 keep 24% (K= 492): survivors= 492 pruned= 76.0% drop=  5.66pp T=2.06->1.71 steps=600 [ 6.5s]
+  seed0 keep 21% (K= 430): survivors= 430 pruned= 79.0% drop=  5.74pp T=1.71->1.35 steps=600 [ 9.2s]
+  seed0 keep 18% (K= 369): survivors= 369 pruned= 82.0% drop=  7.01pp T=1.35->1.00 steps=600 [ 8.4s]
+  seed1 keep 90% (K=1843): survivors=1843 pruned= 10.0% drop=  0.58pp T=4.00->3.82 steps=300 [ 4.5s]
+  seed1 keep 75% (K=1536): survivors=1536 pruned= 25.0% drop=  1.02pp T=3.82->3.65 steps=300 [ 8.5s]
+  seed1 keep 60% (K=1229): survivors=1229 pruned= 40.0% drop=  2.21pp T=3.65->3.47 steps=300 [ 5.6s]
+  seed1 keep 50% (K=1024): survivors=1024 pruned= 50.0% drop=  2.91pp T=3.47->3.29 steps=300 [13.7s]
+  seed1 keep 42% (K= 860): survivors= 860 pruned= 58.0% drop=  3.59pp T=3.29->3.12 steps=300 [ 9.5s]
+  seed1 keep 36% (K= 737): survivors= 737 pruned= 64.0% drop=  3.90pp T=3.12->2.77 steps=600 [ 9.2s]
+  seed1 keep 31% (K= 635): survivors= 635 pruned= 69.0% drop=  4.35pp T=2.76->2.41 steps=600 [ 8.5s]
+  seed1 keep 27% (K= 553): survivors= 553 pruned= 73.0% drop=  4.60pp T=2.41->2.06 steps=600 [ 8.5s]
+  seed1 keep 24% (K= 492): survivors= 492 pruned= 76.0% drop=  4.93pp T=2.06->1.71 steps=600 [ 7.1s]
+  seed1 keep 21% (K= 430): survivors= 430 pruned= 79.0% drop=  5.77pp T=1.71->1.35 steps=600 [ 6.9s]
+  seed1 keep 18% (K= 369): survivors= 369 pruned= 82.0% drop=  5.48pp T=1.35->1.00 steps=600 [ 6.9s]
+
+========================================================================
+STE-TOP-K CURRICULUM v2 — centered STE + T-anneal + node standardisation
+medium [1024,1024] MNIST MLP
+========================================================================
+Baseline acc      : 98.06%    hidden=2048
+Schedule (% kept) : [90, 75, 60, 50, 42, 36, 31, 27, 24, 21, 18]    seeds=[0, 1]
+STE               : centered σ((s-thresh)/T), T anneals 4.0->1.0 GLOBALLY (whole curriculum)
+Node scores       : per-layer CENTER-only (no /σ; avoids scale-invariance freeze)
+Context bias      : tanh-bounded (avoids layer-starvation)
+Optimizer         : Adam CARRIED across stages (m/v persist; lr reset per stage)
+Hacks dropped     : +2.0 bias, tanh   (LayerNorm on context kept)
+Steps/stage       : 300 (easy) / 600 (cliff, %kept<=36)
+------------------------------------------------------------------------
+ %kept |     K | survivors |  %pruned |    drop(pp)
+------------------------------------------------------------------------
+    90 |  1843 |      1843 |    10.0% |   0.47±0.11
+    75 |  1536 |      1536 |    25.0% |   1.16±0.15
+    60 |  1229 |      1229 |    40.0% |   2.47±0.26
+    50 |  1024 |      1024 |    50.0% |   3.20±0.29
+    42 |   860 |       860 |    58.0% |   4.15±0.56
+    36 |   737 |       737 |    64.0% |   4.35±0.45
+    31 |   635 |       635 |    69.0% |   4.65±0.30
+    27 |   553 |       553 |    73.0% |   5.17±0.56
+    24 |   492 |       492 |    76.0% |   5.29±0.36
+    21 |   430 |       430 |    79.0% |   5.75±0.01
+    18 |   369 |       369 |    82.0% |   6.25±0.76
+------------------------------------------------------------------------
+ISO-ACCURACY @2pp (interpolated):
+  center+tanh    : 1340 survivors  (34.6% pruned)
+  λ floor (ref)  : 490 survivors  (76.1% pruned)
+  center vs λ    : +850 survivors (differs from λ floor)
+========================================================================
+
+Saved: experiments/latest/hypernetwork/topk_curriculum/plot_final.png

@@ -10,7 +10,7 @@ RunPod workflow (manual pod, web terminal, single file):
   2. Open the web terminal.
   3. Pull this file directly, e.g.:
        wget -O train_pruner_gpt2.py <raw-github-url-of-this-file>
-  4. pip install transformers datasets matplotlib numpy
+  4. pip install transformers datasets matplotlib numpy tqdm
   5. python train_pruner_gpt2.py [--lambdas ...] [--seeds ...] [--stop_pod]
 
 Outputs land under OUT_ROOT (default /workspace/..., i.e. the Volume Disk):
@@ -79,6 +79,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tqdm import tqdm
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -293,10 +294,10 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @torch.no_grad()
-def evaluate(model, test_loader, device, gates=None) -> float:
+def evaluate(model, test_loader, device, gates=None, desc="eval") -> float:
     """Returns cross-entropy loss (nats). Set gates=None for unpruned model."""
     total_loss = total_tokens = 0
-    for batch in test_loader:
+    for batch in tqdm(test_loader, desc=desc, unit="batch", leave=False, dynamic_ncols=True):
         ids = batch["input_ids"].to(device)
         with autocast_ctx(device):
             if gates is None:
@@ -493,6 +494,7 @@ def train_one(lam, seed, model, train_loader, test_loader, args, device, run_dir
     t0 = time.time()
     step = 0
     loader_iter = iter(train_loader)
+    pbar = tqdm(total=args.steps, desc=tag, unit="step", dynamic_ncols=True)
 
     while step < args.steps:
         try:
@@ -512,20 +514,25 @@ def train_one(lam, seed, model, train_loader, test_loader, args, device, run_dir
             history["per_layer_keep"][i].append(k)
 
         step += 1
+        avg_pruned = (1 - m["avg_gate"]) * 100
+        pbar.set_postfix(loss=f"{m['loss']:+.3f}", pruned=f"{avg_pruned:.1f}%", refresh=False)
+        pbar.update(1)
         if step % args.log_every == 0:
-            avg_pruned = (1 - m["avg_gate"]) * 100
-            print(f"  [{tag}] step {step:>5}/{args.steps} | "
-                  f"loss {m['loss']:+.3f} | "
-                  f"CE orig {m['ce_orig']:.3f} pruned {m['ce_pruned']:.3f} | "
-                  f"avg pruned {avg_pruned:5.1f}%", flush=True)
+            tqdm.write(f"  [{tag}] step {step:>5}/{args.steps} | "
+                       f"loss {m['loss']:+.3f} | "
+                       f"CE orig {m['ce_orig']:.3f} pruned {m['ce_pruned']:.3f} | "
+                       f"avg pruned {avg_pruned:5.1f}%")
 
         if args.timing_probe and step == 50:
             elapsed = time.time() - t0
             t_per_step = elapsed / 50
             projected = t_per_step * args.steps
+            pbar.close()
             print(f"\n  TIMING PROBE: {t_per_step*1000:.0f}ms/step → "
                   f"full run ({args.steps} steps) ≈ {projected/60:.1f} min", flush=True)
             return None
+
+    pbar.close()
 
     total_time = time.time() - t0
 
@@ -534,9 +541,10 @@ def train_one(lam, seed, model, train_loader, test_loader, args, device, run_dir
         final_gates = pruner(get_mlp_weights(model))
     per_layer_kept = [int(g.sum().item()) for g in final_gates]
 
-    print(f"  Evaluating on test set ...", flush=True)
-    orig_ce   = evaluate(model, test_loader, device, gates=None)
-    pruned_ce = evaluate(model, test_loader, device, gates=final_gates)
+    orig_ce   = evaluate(model, test_loader, device, gates=None,
+                        desc=f"[{tag}] eval orig")
+    pruned_ce = evaluate(model, test_loader, device, gates=final_gates,
+                        desc=f"[{tag}] eval pruned")
     orig_ppl   = float(np.exp(orig_ce))
     pruned_ppl = float(np.exp(pruned_ce))
 
@@ -591,6 +599,7 @@ def stop_pod():
     print("\nStopping pod (compute billing off, /workspace preserved) in 10s...",
           flush=True)
     time.sleep(10)
+    os.sync()  # flush any buffered writes to the Volume Disk before halting
 
     pod_id  = os.environ.get("RUNPOD_POD_ID")
     api_key = os.environ.get("RUNPOD_API_KEY")
@@ -663,9 +672,13 @@ def main():
 
     os.makedirs(out_root, exist_ok=True)
     all_results = []
+    total_runs = len(args.lambdas) * len(args.seeds)
+    run_num = 0
 
     for lam in args.lambdas:
         for seed in args.seeds:
+            run_num += 1
+            tqdm.write(f"\n{'='*70}\nRun {run_num}/{total_runs}\n{'='*70}")
             run_dir = (os.path.join(out_root, f"lambda_{lam}", f"seed_{seed}")
                        if len(args.seeds) > 1
                        else os.path.join(out_root, f"lambda_{lam}"))

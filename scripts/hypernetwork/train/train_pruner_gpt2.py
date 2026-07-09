@@ -265,7 +265,7 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
     from torch.utils.data import DataLoader
 
     tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
-    raw = load_dataset("wikitext", "wikitext-2-raw-v1")
+    raw = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1")
 
     def tokenize(examples):
         return tokenizer(examples["text"])

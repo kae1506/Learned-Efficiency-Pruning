@@ -10,7 +10,11 @@ RunPod workflow (manual pod, web terminal, single file):
   2. Open the web terminal.
   3. Pull this file directly, e.g.:
        wget -O train_pruner_gpt2.py <raw-github-url-of-this-file>
-  4. pip install transformers datasets matplotlib numpy tqdm
+  4. pip install transformers==5.12.1 datasets==5.0.0 matplotlib==3.10.8 numpy==2.4.2 tqdm==4.68.3
+     (pinned versions verified working — see requirements_gpt2_runpod.txt in the
+     same repo dir if you also pulled that file: pip install -r requirements_gpt2_runpod.txt.
+     Deliberately excludes torch — the pod template already ships a CUDA-matched
+     build; installing a generic one here risks breaking GPU support.)
   5. python train_pruner_gpt2.py [--lambdas ...] [--seeds ...] [--stop_pod]
 
 Outputs land under OUT_ROOT (default /workspace/..., i.e. the Volume Disk):

@@ -108,6 +108,8 @@ Structured OBC (structured sibling of SparseGPT; whole-neuron OBS, exact greedy)
 
 - **Known gap, not fixed (flagged, not asked to fix): no resume/skip-if-completed logic.** If the sweep is interrupted and rerun with the same command, it restarts from λ #1 and overwrites already-completed `run_dir`s with fresh (statistically similar, not identical) results. Not a risk under normal uninterrupted operation.
 
+- **Eval protocol switched from non-overlapping blocks to sliding-window, 2026-07-10, user-confirmed.** `get_loaders()` now returns test data as one flat token stream (`test_ids`) instead of a chunked `DataLoader`; `evaluate()` walks it with `max_length=1024` (GPT-2 small's real context, independent of `--seq_len` used for training) and `stride=512` (50% overlap, standard tradeoff), masking already-scored tokens via `-100` so nothing is double-counted — matches the convention used in the GPT-2 paper, SparseGPT, Wanda. Old (v1) results used non-overlapping 512-token blocks, which inflate ppl (early tokens in every block have short context) — v1's `orig_ppl=35.09` is not numerically comparable to whatever v2 produces; expect v2's baseline to land closer to the literature's ~29 for GPT-2 small on WikiText-2. Verified: sliced to exactly one window (1024 tokens, no prior context to mask), `evaluate()`'s output matches a plain unmasked `model(...).loss` call bit-for-bit (2.768210 both). New CLI: `--eval_max_length` (default 1024), `--eval_stride` (default 512).
+
 ## Evaluation / interpretability
 `src/interpretability.py`
 

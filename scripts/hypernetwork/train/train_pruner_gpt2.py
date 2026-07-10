@@ -261,6 +261,13 @@ def apply_gates(model, gates):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
+    """
+    Train: non-overlapping fixed-length blocks — standard for training,
+    unaffected by the eval-protocol choice below.
+    Test: returned as ONE flat token stream (not chunked/batched) — evaluate()
+    walks it with a sliding window so eval isn't penalized by short-context
+    block boundaries (see evaluate() docstring).
+    """
     from datasets import load_dataset
     from transformers import GPT2TokenizerFast
     from torch.utils.data import DataLoader
@@ -278,39 +285,63 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
         return {"input_ids": blocks}
 
     tokenized = raw.map(tokenize, batched=True, remove_columns=["text"])
-    blocked   = tokenized.map(group, batched=True,
-                              remove_columns=tokenized["train"].column_names)
-    blocked.set_format(type="torch", columns=["input_ids"])
 
-    train_loader = DataLoader(blocked["train"], batch_size=batch_size,
+    train_blocked = tokenized["train"].map(group, batched=True,
+                                           remove_columns=tokenized["train"].column_names)
+    train_blocked.set_format(type="torch", columns=["input_ids"])
+    train_loader = DataLoader(train_blocked, batch_size=batch_size,
                               shuffle=True, num_workers=num_workers)
-    test_loader  = DataLoader(blocked["test"],  batch_size=batch_size,
-                              shuffle=False, num_workers=num_workers)
-    return train_loader, test_loader
+
+    test_ids = torch.tensor(sum(tokenized["test"]["input_ids"], []), dtype=torch.long)
+
+    return train_loader, test_ids
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Evaluation — perplexity on test set under given gates
+# Evaluation — sliding-window perplexity on the full test stream
 # ─────────────────────────────────────────────────────────────────────────────
 
 @torch.no_grad()
-def evaluate(model, test_loader, device, gates=None, desc="eval") -> float:
-    """Returns cross-entropy loss (nats). Set gates=None for unpruned model."""
-    total_loss = total_tokens = 0
-    for batch in tqdm(test_loader, desc=desc, unit="batch", leave=False, dynamic_ncols=True):
-        ids = batch["input_ids"].to(device)
+def evaluate(model, test_ids, device, gates=None, desc="eval",
+            max_length: int = 1024, stride: int = 512) -> float:
+    """
+    Returns cross-entropy loss (nats). Set gates=None for unpruned model.
+
+    Standard sliding-window protocol (GPT-2 paper, SparseGPT, Wanda), not
+    non-overlapping blocks: walk a max_length-token window over the full test
+    stream in stride-token steps; at each step only the NEW (non-overlapping)
+    `stride` tokens are scored (via -100 label-masking on the rest), so no
+    token is double-counted and every scored token past the first window has
+    close to full max_length context. Non-overlapping block eval inflates ppl
+    because every block's leading tokens see artificially short context.
+    max_length=1024 is GPT-2 small's actual context window (independent of
+    the training seq_len, which can stay shorter for cost reasons).
+    """
+    total_len = test_ids.size(0)
+    total_nll = total_tokens = 0
+    prev_end = 0
+    positions = list(range(0, total_len, stride))
+    for begin in tqdm(positions, desc=desc, unit="window", leave=False, dynamic_ncols=True):
+        end = min(begin + max_length, total_len)
+        trg_len = end - prev_end   # tokens newly covered since the last window
+        ids = test_ids[begin:end].unsqueeze(0).to(device)
+        labels = ids.clone()
+        labels[:, :-trg_len] = -100   # mask tokens already scored by the previous window
+
         with autocast_ctx(device):
             if gates is None:
-                out = model(ids, labels=ids)
-                loss = out.loss.item()
+                loss = model(ids, labels=labels).loss
             else:
                 with apply_gates(model, gates):
-                    out = model(ids, labels=ids)
-                loss = out.loss.item()
-        n_tok = (ids[:, 1:] != -100).sum().item()
-        total_loss   += loss * n_tok
+                    loss = model(ids, labels=labels).loss
+
+        n_tok = (labels[:, 1:] != -100).sum().item()
+        total_nll    += loss.item() * n_tok
         total_tokens += n_tok
-    return total_loss / total_tokens   # mean CE in nats
+        prev_end = end
+        if end == total_len:
+            break
+    return total_nll / total_tokens   # mean CE in nats
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -471,7 +502,7 @@ def write_run_summary(path, lam, seed, history, per_layer_kept,
 # than held in memory / written only at the end of the whole sweep.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def train_one(lam, seed, model, train_loader, test_loader, args, device, run_dir):
+def train_one(lam, seed, model, train_loader, test_ids, args, device, run_dir):
     torch.manual_seed(seed); np.random.seed(seed)
 
     layer_shapes = [LAYER_SHAPE] * N_LAYERS
@@ -541,10 +572,12 @@ def train_one(lam, seed, model, train_loader, test_loader, args, device, run_dir
         final_gates = pruner(get_mlp_weights(model))
     per_layer_kept = [int(g.sum().item()) for g in final_gates]
 
-    orig_ce   = evaluate(model, test_loader, device, gates=None,
-                        desc=f"[{tag}] eval orig")
-    pruned_ce = evaluate(model, test_loader, device, gates=final_gates,
-                        desc=f"[{tag}] eval pruned")
+    orig_ce   = evaluate(model, test_ids, device, gates=None,
+                        desc=f"[{tag}] eval orig",
+                        max_length=args.eval_max_length, stride=args.eval_stride)
+    pruned_ce = evaluate(model, test_ids, device, gates=final_gates,
+                        desc=f"[{tag}] eval pruned",
+                        max_length=args.eval_max_length, stride=args.eval_stride)
     orig_ppl   = float(np.exp(orig_ce))
     pruned_ppl = float(np.exp(pruned_ce))
 
@@ -633,6 +666,12 @@ def main():
     ap.add_argument("--lstm_hidden",  type=int,   default=128)
     ap.add_argument("--lr",           type=float, default=0.001)
     ap.add_argument("--log_every",    type=int,   default=250)
+    ap.add_argument("--eval_max_length", type=int, default=1024,
+                    help="Sliding-window eval context length (GPT-2 small's "
+                         "actual n_positions). Independent of --seq_len.")
+    ap.add_argument("--eval_stride",  type=int,   default=512,
+                    help="Sliding-window eval stride (512 = 50%% overlap, "
+                         "the standard tradeoff point).")
     ap.add_argument("--device",       type=str,   default="cuda")
     ap.add_argument("--out_dir",      type=str,   default=OUT_ROOT)
     ap.add_argument("--timing_probe", action="store_true",
@@ -660,14 +699,15 @@ def main():
     print(f"GPT-2 small loaded — {n_params:,} params, frozen.", flush=True)
 
     print("Loading WikiText-2 (downloads on first run) ...", flush=True)
-    train_loader, test_loader = get_loaders(args.seq_len, args.batch_size)
+    train_loader, test_ids = get_loaders(args.seq_len, args.batch_size)
     print(f"Data: seq_len={args.seq_len} batch={args.batch_size} "
-          f"train_batches={len(train_loader)} test_batches={len(test_loader)}", flush=True)
+          f"train_batches={len(train_loader)} test_tokens={test_ids.size(0):,} "
+          f"(eval: max_length={args.eval_max_length} stride={args.eval_stride})", flush=True)
 
     if args.timing_probe:
         print("\n── TIMING PROBE (50 steps, λ=0.05 seed=0) ──", flush=True)
         run_dir = os.path.join(out_root, "timing_probe")
-        train_one(0.05, 0, model, train_loader, test_loader, args, device, run_dir)
+        train_one(0.05, 0, model, train_loader, test_ids, args, device, run_dir)
         return
 
     os.makedirs(out_root, exist_ok=True)
@@ -682,7 +722,7 @@ def main():
             run_dir = (os.path.join(out_root, f"lambda_{lam}", f"seed_{seed}")
                        if len(args.seeds) > 1
                        else os.path.join(out_root, f"lambda_{lam}"))
-            res = train_one(lam, seed, model, train_loader, test_loader,
+            res = train_one(lam, seed, model, train_loader, test_ids,
                             args, device, run_dir)
             if res is None:
                 return

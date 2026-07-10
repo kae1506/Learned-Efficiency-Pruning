@@ -1,0 +1,14 @@
+# pip install -r requirements_gpt2_runpod.txt
+#
+# For train_pruner_gpt2.py on a RunPod pod (runpod/pytorch:* templates).
+# Deliberately does NOT list torch/torchvision/torchaudio: the template
+# already ships a CUDA-matched build, and installing a plain PyPI torch
+# here would risk overwriting it with a build that doesn't match the pod's
+# CUDA version, breaking GPU support. Versions pinned to what's been
+# verified working (local smoke tests + the completed v1 pod sweep).
+
+transformers==5.12.1
+datasets==5.0.0
+matplotlib==3.10.8
+numpy==2.4.2
+tqdm==4.68.3

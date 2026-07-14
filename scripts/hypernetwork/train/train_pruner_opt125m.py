@@ -286,8 +286,10 @@ def apply_gates(model, gates):
 
 def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
     """
-    Train: non-overlapping fixed-length blocks — standard for training,
-    unaffected by the eval-protocol choice below.
+    Train: returned two ways — non-overlapping fixed-length blocks in a
+    DataLoader (standard for training), AND as one flat token stream
+    (train_ids) so evaluate()'s sliding-window protocol can also run over
+    it, for the --improvement_result train-vs-test comparison.
     Test: returned as ONE flat token stream (not chunked/batched) — evaluate()
     walks it with a sliding window so eval isn't penalized by short-context
     block boundaries (see evaluate() docstring).
@@ -316,9 +318,15 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
     train_loader = DataLoader(train_blocked, batch_size=batch_size,
                               shuffle=True, num_workers=num_workers)
 
-    test_ids = torch.tensor(sum(tokenized["test"]["input_ids"], []), dtype=torch.long)
+    test_ids  = torch.tensor(sum(tokenized["test"]["input_ids"],  []), dtype=torch.long)
+    # Flat train stream, same construction as test_ids -- lets evaluate()'s
+    # sliding-window protocol run identically over train, for the
+    # --improvement_result train-vs-test comparison. Unused by normal
+    # training (train_loader is what's used there), so this costs one
+    # cheap concatenation on top of what get_loaders() already does.
+    train_ids = torch.tensor(sum(tokenized["train"]["input_ids"], []), dtype=torch.long)
 
-    return train_loader, test_ids
+    return train_loader, train_ids, test_ids
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -438,6 +446,93 @@ def sanity_check(model, test_ids, device, args):
     print("\n" + "=" * 70)
     verdict = "LIKELY BUG" if not check1_pass or delta < 0 else "NO BUG FOUND (mechanism looks clean)"
     print(f"VERDICT: {verdict}")
+    print("=" * 70, flush=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Improvement-result check — for a pruner that already shows pruned CE below
+# original CE on the test set: is the improvement (orig_ce - pruned_ce)
+# similar on TRAIN vs TEST, or is it much bigger on train?
+#
+# The pruner's loss, (ce_pruned - ce_orig) + λ·sparsity_loss, has no floor at
+# zero -- gradient descent is directly rewarded for driving ce_pruned below
+# ce_orig, and it searches for that on the TRAIN split, over thousands of
+# steps. WikiText-2's train/test splits are the same style of Wikipedia
+# articles (correlated, not independent domains), so some transfer to test
+# is expected even if the mask is doing something train-distribution-
+# specific rather than finding a generally better subnetwork. A large
+# train-vs-test gap in the improvement is the fingerprint of that: mostly
+# fitting, only partially transferring. This does NOT by itself prove
+# generalization -- an out-of-domain corpus (different dataset entirely) is
+# the decisive test; this is the cheap secondary check that doesn't need one.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def improvement_result_check(model, train_ids_flat, test_ids, device, args):
+    print("\n" + "=" * 70)
+    print(f"IMPROVEMENT-RESULT CHECK — train vs test CE gap")
+    print(f"checkpoint: {args.pruner_ckpt}")
+    print("=" * 70, flush=True)
+
+    ckpt = torch.load(args.pruner_ckpt, map_location=device, weights_only=False)
+    layer_shapes = [LAYER_SHAPE] * N_LAYERS
+    pruner = Pruner(layer_shapes, embed_dim=ckpt["embed_dim"],
+                    lstm_hidden=ckpt["lstm_hidden"]).to(device)
+    pruner.load_state_dict(ckpt["pruner_state_dict"])
+    pruner.eval()
+    print(f"  Loaded pruner: λ={ckpt.get('lambda')} seed={ckpt.get('seed')} "
+          f"embed_dim={ckpt['embed_dim']} lstm_hidden={ckpt['lstm_hidden']}")
+
+    with torch.no_grad():
+        gates = pruner(get_mlp_weights(model))
+    pct_pruned = (1 - float(np.mean([g.mean().item() for g in gates]))) * 100
+    print(f"  gates: {pct_pruned:.2f}% pruned (recomputed fresh from checkpoint)")
+
+    # Match the train-eval sample size to the test set so this is an
+    # apples-to-apples comparison in eval cost AND statistical power --
+    # not "more train data trivially averages the effect down."
+    n = min(args.train_eval_tokens or test_ids.size(0), train_ids_flat.size(0))
+    train_sample = train_ids_flat[:n]
+    print(f"  train sample: {n:,} tokens (test set: {test_ids.size(0):,} tokens)")
+
+    print("\n  -- TEST split --")
+    test_orig_ce   = evaluate(model, test_ids, device, gates=None, desc="test orig",
+                              max_length=args.eval_max_length, stride=args.eval_stride)
+    test_pruned_ce = evaluate(model, test_ids, device, gates=gates, desc="test pruned",
+                              max_length=args.eval_max_length, stride=args.eval_stride)
+    test_delta = test_orig_ce - test_pruned_ce   # positive = improvement
+
+    print("\n  -- TRAIN split (matched-size sample) --")
+    train_orig_ce   = evaluate(model, train_sample, device, gates=None, desc="train orig",
+                               max_length=args.eval_max_length, stride=args.eval_stride)
+    train_pruned_ce = evaluate(model, train_sample, device, gates=gates, desc="train pruned",
+                               max_length=args.eval_max_length, stride=args.eval_stride)
+    train_delta = train_orig_ce - train_pruned_ce
+
+    print("\n" + "-" * 70)
+    print(f"  {'':>16} {'orig CE':>10} {'pruned CE':>10} {'Δ (improve)':>12}")
+    print(f"  {'test':>16} {test_orig_ce:>10.4f} {test_pruned_ce:>10.4f} {test_delta:>+12.4f}")
+    print(f"  {'train (sample)':>16} {train_orig_ce:>10.4f} {train_pruned_ce:>10.4f} {train_delta:>+12.4f}")
+    print("-" * 70)
+
+    if train_delta <= 0:
+        print("  Train split doesn't show improvement either -- this test isn't\n"
+              "  informative here (nothing to compare the test-set gap against).")
+    else:
+        ratio = test_delta / train_delta
+        print(f"  test improvement is {ratio*100:.1f}% of train improvement.")
+        if ratio > 0.7:
+            print("  Improvement transfers strongly to test -- consistent with a genuinely\n"
+                  "  useful sparse subnetwork, not just training-distribution fitting.\n"
+                  "  Still worth the out-of-domain check for full confidence.")
+        elif ratio > 0.3:
+            print("  Partial transfer -- some real signal, but a meaningful chunk of the\n"
+                  "  improvement looks training-distribution-specific. Treat with caution\n"
+                  "  until the out-of-domain check is run.")
+        else:
+            print("  Improvement is mostly train-specific and barely transfers to test --\n"
+                  "  consistent with the mask fitting WikiText-2 train statistics rather than\n"
+                  "  finding a generally better subnetwork. The decisive remaining test is\n"
+                  "  out-of-domain eval (a different corpus entirely), not this one.")
     print("=" * 70, flush=True)
 
 
@@ -795,6 +890,20 @@ def main():
                          "pruned regime where the anomaly showed up).")
     ap.add_argument("--sanity_check_seed", type=int, default=0,
                     help="RNG seed for the random-gate control's mask.")
+    ap.add_argument("--improvement_result", action="store_true",
+                    help="Load a trained pruner checkpoint (--pruner_ckpt) "
+                         "and compare its CE improvement (orig - pruned) on "
+                         "TRAIN vs TEST. A much bigger gap on train than "
+                         "test is the fingerprint of training-distribution-"
+                         "specific fitting rather than a generally better "
+                         "subnetwork. No training involved, exits after.")
+    ap.add_argument("--pruner_ckpt",  type=str,   default=None,
+                    help="Path to a pruner.pt checkpoint, required with "
+                         "--improvement_result.")
+    ap.add_argument("--train_eval_tokens", type=int, default=None,
+                    help="Token count for the train-sample eval in "
+                         "--improvement_result. Defaults to matching the "
+                         "test set's token count (apples-to-apples).")
     ap.add_argument("--stop_pod",     action="store_true",
                     help="Stop the RunPod pod after the sweep: tries "
                          "`runpodctl stop pod` (if RUNPOD_API_KEY is set), "
@@ -802,6 +911,9 @@ def main():
                          "docstring). Volume Disk is preserved either way.")
     args = ap.parse_args()
     out_root = args.out_dir
+
+    if args.improvement_result and not args.pruner_ckpt:
+        ap.error("--improvement_result requires --pruner_ckpt PATH")
 
     if args.device == "cuda" and torch.cuda.is_available():
         device = torch.device("cuda")
@@ -818,13 +930,18 @@ def main():
     print(f"OPT-125M loaded — {n_params:,} params, frozen.", flush=True)
 
     print("Loading WikiText-2 (downloads on first run) ...", flush=True)
-    train_loader, test_ids = get_loaders(args.seq_len, args.batch_size)
+    train_loader, train_ids, test_ids = get_loaders(args.seq_len, args.batch_size)
     print(f"Data: seq_len={args.seq_len} batch={args.batch_size} "
-          f"train_batches={len(train_loader)} test_tokens={test_ids.size(0):,} "
+          f"train_batches={len(train_loader)} train_tokens={train_ids.size(0):,} "
+          f"test_tokens={test_ids.size(0):,} "
           f"(eval: max_length={args.eval_max_length} stride={args.eval_stride})", flush=True)
 
     if args.sanity_check:
         sanity_check(model, test_ids, device, args)
+        return
+
+    if args.improvement_result:
+        improvement_result_check(model, train_ids, test_ids, device, args)
         return
 
     if args.timing_probe:

@@ -22,6 +22,9 @@ RunPod workflow (manual pod, web terminal, single file):
      (same pinned versions verified for the GPT-2 sibling script; excludes
      torch deliberately — the pod template already ships a CUDA-matched build)
   5. python train_pruner_opt125m.py [--lambdas ...] [--seeds ...] [--stop_pod]
+     If pruned CE ever comes out BELOW original CE and you're not sure
+     whether that's real or a bug: python train_pruner_opt125m.py --sanity_check
+     (no training, ~2 eval passes, exits with a verdict — see sanity_check()).
 
 Outputs land under OUT_ROOT (default /workspace/..., i.e. the Volume Disk):
   lambda_<λ>/[seed_<s>/]plot.png       3-panel: pruner loss / LM loss / per-layer %
@@ -366,6 +369,79 @@ def evaluate(model, test_ids, device, gates=None, desc="eval",
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Sanity check — diagnoses whether a pruned-CE-below-original result is a
+# real effect of the trained mask or an artifact of the eval/apply_gates
+# plumbing. Two checks, both untrained (no pruner training loop needed):
+#
+#   1. Identity-gate control: gates=None vs gates=all-ones should be a
+#      numerical no-op (multiplying activations by exactly 1.0 changes
+#      nothing). Any nonzero diff here means apply_gates/autocast is doing
+#      something to the forward pass beyond the intended masking -- a real
+#      bug, independent of whether any mask ever beats baseline.
+#
+#   2. Random-gate control at matched sparsity: prune a RANDOM ~frac of
+#      neurons per layer (no training). If CE still drops below original
+#      with a random mask, the effect is in the eval mechanism, not
+#      anything a trained pruner found. If it gets worse (as naively
+#      expected), then a trained pruner's CE beating baseline at similar
+#      sparsity is evidence of a real, learned effect -- not proof by
+#      itself, but rules out the plumbing as the explanation.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def sanity_check(model, test_ids, device, args):
+    print("\n" + "=" * 70)
+    print("SANITY CHECK 1/2 — identity-gate control (gates=None vs all-ones)")
+    print("=" * 70, flush=True)
+    ce_none = evaluate(model, test_ids, device, gates=None, desc="gates=None",
+                       max_length=args.eval_max_length, stride=args.eval_stride)
+    ones_gates = [torch.ones(N_INTER, device=device) for _ in range(N_LAYERS)]
+    ce_ones = evaluate(model, test_ids, device, gates=ones_gates, desc="gates=all-ones",
+                       max_length=args.eval_max_length, stride=args.eval_stride)
+    diff = ce_ones - ce_none
+    print(f"  CE (gates=None)      : {ce_none:.6f}")
+    print(f"  CE (gates=all-ones)  : {ce_ones:.6f}")
+    print(f"  diff                 : {diff:+.6f}")
+    check1_pass = abs(diff) < 1e-3
+    if check1_pass:
+        print("  PASS — all-ones gate is a numerical no-op, apply_gates/autocast path is clean.")
+    else:
+        print("  FAIL — all-ones gate changes CE. Bug is in apply_gates or the autocast/dtype "
+              "interaction (e.g. g.view(1,1,-1) upcasting bf16 activations to fp32 mid-block), "
+              "NOT in the pruner's learned mask. Fix this before trusting any pruned-CE number.")
+
+    print("\n" + "=" * 70)
+    print(f"SANITY CHECK 2/2 — random-gate control at ~{args.sanity_check_frac*100:.0f}% pruned "
+          f"(seed={args.sanity_check_seed}, no training)")
+    print("=" * 70, flush=True)
+    torch.manual_seed(args.sanity_check_seed)
+    keep_frac = 1.0 - args.sanity_check_frac
+    random_gates = [(torch.rand(N_INTER, device=device) < keep_frac).float()
+                    for _ in range(N_LAYERS)]
+    actual_pruned_frac = 1.0 - float(np.mean([g.mean().item() for g in random_gates]))
+    ce_random = evaluate(model, test_ids, device, gates=random_gates, desc="random gates",
+                         max_length=args.eval_max_length, stride=args.eval_stride)
+    delta = ce_random - ce_none
+    print(f"  orig CE (gates=None)                  : {ce_none:.6f}")
+    print(f"  random-gate CE ({actual_pruned_frac*100:.1f}% pruned)      : {ce_random:.6f}")
+    print(f"  delta (random - orig)                 : {delta:+.6f}")
+    if delta < 0:
+        print("  RANDOM pruning IMPROVED CE below original — the eval/apply_gates mechanism\n"
+              "  is very likely buggy (a trained mask beating baseline is plausible; an\n"
+              "  untrained RANDOM mask doing so is not). Do not trust the sweep's pruned-CE\n"
+              "  numbers until this is root-caused.")
+    else:
+        print("  Random pruning made CE worse, as expected. If your trained pruner's CE is\n"
+              "  still BELOW original at a similar sparsity, that's consistent with the mask\n"
+              "  genuinely having learned something on training data (see the module docstring's\n"
+              "  note on the (ce_pruned - ce_orig) loss having no floor at zero) — not a bug.")
+
+    print("\n" + "=" * 70)
+    verdict = "LIKELY BUG" if not check1_pass or delta < 0 else "NO BUG FOUND (mechanism looks clean)"
+    print(f"VERDICT: {verdict}")
+    print("=" * 70, flush=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Single pruner training step
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -707,6 +783,18 @@ def main():
     ap.add_argument("--out_dir",      type=str,   default=OUT_ROOT)
     ap.add_argument("--timing_probe", action="store_true",
                     help="Run 50 steps, print per-step time, then exit.")
+    ap.add_argument("--sanity_check", action="store_true",
+                    help="Run 2 untrained diagnostic checks (identity-gate "
+                         "no-op, random-gate-at-matched-sparsity) to tell "
+                         "whether a pruned-CE-below-original result is a "
+                         "real trained-mask effect or an eval/apply_gates "
+                         "bug, then exit. No pruner training involved.")
+    ap.add_argument("--sanity_check_frac", type=float, default=0.36,
+                    help="Sparsity fraction for the random-gate control "
+                         "(default 0.36 matches the observed 35-37%% "
+                         "pruned regime where the anomaly showed up).")
+    ap.add_argument("--sanity_check_seed", type=int, default=0,
+                    help="RNG seed for the random-gate control's mask.")
     ap.add_argument("--stop_pod",     action="store_true",
                     help="Stop the RunPod pod after the sweep: tries "
                          "`runpodctl stop pod` (if RUNPOD_API_KEY is set), "
@@ -734,6 +822,10 @@ def main():
     print(f"Data: seq_len={args.seq_len} batch={args.batch_size} "
           f"train_batches={len(train_loader)} test_tokens={test_ids.size(0):,} "
           f"(eval: max_length={args.eval_max_length} stride={args.eval_stride})", flush=True)
+
+    if args.sanity_check:
+        sanity_check(model, test_ids, device, args)
+        return
 
     if args.timing_probe:
         print("\n── TIMING PROBE (50 steps, λ=0.05 seed=0) ──", flush=True)

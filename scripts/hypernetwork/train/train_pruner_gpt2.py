@@ -451,21 +451,36 @@ def plot_multiseed_comparison(per_lambda_stats, save_path):
 
 
 def plot_efficiency(per_lambda_stats, save_path):
+    """
+    efficiency = pct_pruned / exp(ΔCE),  ΔCE = ln(pruned_ppl_mean / orig_ppl)
+
+    Replaces the earlier `pct_pruned / max(ppl_drop, 0.5)` (2026-07-11):
+    that clamp goes flat (constant 0.5 denominator) whenever pruning
+    *improves* ppl (ΔCE < 0, seen throughout the v1 sweep — F16), destroying
+    all signal about how much it improved. exp(ΔCE) = pruned_ppl/orig_ppl is
+    smooth and strictly positive everywhere in the observed range (no finite
+    blow-up, unlike tan/sin candidates considered and rejected — tan hits a
+    real asymptote near ΔCE=±π/2, both tan and sin are odd functions so they
+    flip sign for ΔCE<0), monotonically increasing in ΔCE, and needs no
+    tuned floor constant: at ΔCE=0 this reduces to exactly pct_pruned (full
+    credit at zero cost); ΔCE<0 boosts it above pct_pruned; ΔCE>0 discounts
+    it below. See diary/crisp-findings.md Appendix G addendum.
+    """
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     fig, ax = plt.subplots(figsize=(7, 5))
     lambdas = [s["lambda"] for s in per_lambda_stats]
     orig_ppl = per_lambda_stats[0]["orig_ppl"]
     eff = []
     for s in per_lambda_stats:
-        ppl_drop = s["pruned_ppl_mean"] - orig_ppl
-        eff.append(s["pct_pruned_mean"] / max(ppl_drop, 0.5))
+        delta_ce = np.log(s["pruned_ppl_mean"] / orig_ppl)
+        eff.append(s["pct_pruned_mean"] / np.exp(delta_ce))
     ax.plot(lambdas, eff, "o-", color="darkorange", markersize=10, lw=2)
     for lam, e in zip(lambdas, eff):
         ax.annotate(f"{e:.1f}", (lam, e), xytext=(6, 4),
                     textcoords="offset points", fontsize=9)
     ax.set_xscale("log")
     ax.set_xlabel("λ (log scale)")
-    ax.set_ylabel("efficiency  =  (% pruned) / max(ppl_drop, 0.5)")
+    ax.set_ylabel("efficiency  =  (% pruned) / exp(ΔCE)")
     ax.set_title("GPT-2 small MLP — pruning efficiency vs λ", fontweight="bold")
     ax.grid(alpha=0.3, which="both")
     fig.tight_layout(); fig.savefig(save_path, dpi=150, bbox_inches="tight")

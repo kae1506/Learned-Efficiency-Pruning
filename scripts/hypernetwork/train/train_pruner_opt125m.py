@@ -1,21 +1,27 @@
 """
-GPT-2 small MLP pruner — λ × seed sweep. Standalone file, no repo deps.
+OPT-125M MLP pruner — λ × seed sweep. Standalone file, no repo deps.
 
-Prunes the 3072 intermediate neurons in each of GPT-2 small's 12 MLP blocks.
-Frozen GPT-2 weights; only the BiLSTM pruner (inlined below) trains.
+Direct port of train_pruner_gpt2.py to facebook/opt-125m. Architecture is
+compute-equivalent to GPT-2 small: 12 layers, hidden=768, 12 heads, FFN=3072
+(vs GPT-2's identical 12/768/12/3072) — OPT was built to mirror GPT-family
+block dimensions at each size, so expect the same throughput/wall-clock time
+as the GPT-2 sweep, not "extra" time for compute. See diary/engineering_decisions.md
+for the porting notes (module paths, the removed .T transpose, eval-window
+size) and the timing reasoning.
+
+Prunes the 3072 intermediate neurons in each of OPT-125M's 12 FFN blocks.
+Frozen OPT weights; only the BiLSTM pruner (inlined below) trains.
 
 RunPod workflow (manual pod, web terminal, single file):
   1. Create a pod in the RunPod UI dashboard (Volume Disk only, no network
      volume needed — see storage notes below).
   2. Open the web terminal.
   3. Pull this file directly, e.g.:
-       wget -O train_pruner_gpt2.py <raw-github-url-of-this-file>
+       wget -O train_pruner_opt125m.py <raw-github-url-of-this-file>
   4. pip install transformers==5.12.1 datasets==5.0.0 matplotlib==3.10.8 numpy==2.4.2 tqdm==4.68.3
-     (pinned versions verified working — see requirements_gpt2_runpod.txt in the
-     same repo dir if you also pulled that file: pip install -r requirements_gpt2_runpod.txt.
-     Deliberately excludes torch — the pod template already ships a CUDA-matched
-     build; installing a generic one here risks breaking GPU support.)
-  5. python train_pruner_gpt2.py [--lambdas ...] [--seeds ...] [--stop_pod]
+     (same pinned versions verified for the GPT-2 sibling script; excludes
+     torch deliberately — the pod template already ships a CUDA-matched build)
+  5. python train_pruner_opt125m.py [--lambdas ...] [--seeds ...] [--stop_pod]
 
 Outputs land under OUT_ROOT (default /workspace/..., i.e. the Volume Disk):
   lambda_<λ>/[seed_<s>/]plot.png       3-panel: pruner loss / LM loss / per-layer %
@@ -27,47 +33,46 @@ Each (λ, seed) run's outputs are written immediately after that run finishes �
 not batched at the end — so a mid-sweep interruption still leaves completed
 runs on disk.
 
+PORTING NOTES (differences from train_pruner_gpt2.py, everything else identical):
+  - Model class: OPTForCausalLM, checkpoint "facebook/opt-125m".
+  - Module paths: OPT uses model.model.decoder.layers[i].fc1/fc2 (plain
+    nn.Linear), not GPT-2's model.transformer.h[i].mlp.c_fc/c_proj (Conv1D).
+  - get_mlp_weights() does NOT transpose. GPT-2's Conv1D stores weight as
+    [in, out], requiring .T to get [out_nodes, in_features] for the row
+    encoder. OPT's nn.Linear already stores [out_features, in_features] —
+    adding .T here would silently feed the pruner transposed weights, a
+    subtle bug, not a crash. Left un-transposed on purpose.
+  - apply_gates() hooks fc2's forward_pre_hook (analogous position to GPT-2's
+    c_proj: after the FFN activation, before the down-projection). OPT-125M's
+    FFN activation is ReLU (not GELU) — no code change needed, the hook
+    multiplies post-activation regardless of which nonlinearity produced it.
+  - Tokenizer: AutoTokenizer.from_pretrained("facebook/opt-125m") rather than
+    assuming GPT2TokenizerFast works — OPT reuses GPT-2's BPE vocab but ships
+    its own tokenizer files; safer to load OPT's own.
+  - Eval window: max_length=2048, stride=1024 (OPT-125M's actual context
+    window, same 50%-overlap convention as GPT-2's max_length=1024/stride=512
+    scaled up) — NOT the same absolute numbers as the GPT-2 script. This
+    means absolute ppl is not directly comparable to the GPT-2 sweep without
+    controlling for eval-window size too (same lesson as the v1-vs-v2
+    eval-protocol fix — match protocol before comparing raw numbers).
+
 PERFORMANCE — bf16 autocast on CUDA:
-  The frozen GPT-2 forward passes (the dominant cost — see autocast_ctx) run
-  under torch.autocast(dtype=torch.bfloat16) when on CUDA, engaging Tensor
-  Cores instead of running plain fp32 matmuls. This roughly doubles achievable
-  throughput on Ada/Blackwell cards (4090/5090) at no extra cost — measure
-  with --timing_probe before assuming a number; GPT-2 small at this batch/seq
-  size may be bandwidth- or overhead-bound rather than purely compute-bound.
-  The pruner itself stays fp32 (negligible compute, keeps the STE gate
-  threshold simple). No-op on CPU/MPS.
+  Same as the GPT-2 script — frozen-model forward passes run under
+  torch.autocast(dtype=torch.bfloat16) on CUDA. Since the architecture is
+  compute-equivalent to GPT-2 small, expect the same throughput (~steps/s)
+  measured there — verify with --timing_probe rather than assume.
 
 STORAGE — Volume Disk only, no network volume:
-  - GPT-2 weights (~500MB) + WikiText-2 (~1MB) are cached under HF_HOME, which
-    this script points at /root/.cache (Container Disk, ephemeral) rather than
-    /workspace (Volume Disk). They don't count against your billed persistent
-    storage; the cost is a ~500MB re-download if the pod is later recreated.
+  - OPT-125M weights (~500MB) + WikiText-2 (~1MB) are cached under HF_HOME,
+    pointed at /root/.cache (Container Disk, ephemeral) rather than
+    /workspace (Volume Disk) — same reasoning as the GPT-2 script.
   - Per-run outputs are small: plot.png (~200-500KB) + summary.txt (~1KB) +
-    pruner.pt (~8MB at default embed_dim=64/lstm_hidden=128, fp32 state_dict
-    only — no optimizer state saved). A default 6λ × 2-seed sweep (12 runs) is
-    roughly 100-110MB total under /workspace.
-  - Nothing else touches the Volume Disk: no intermediate/step-level history
-    arrays are written to disk, only the final plot + summary + checkpoint.
+    pruner.pt (~8MB at default embed_dim=64/lstm_hidden=128).
 
 STOPPING THE POD (--stop_pod):
-  Two-tier, in order:
-   1. Documented path: `runpodctl stop pod $RUNPOD_POD_ID`, using RUNPOD_API_KEY
-      if you set one as a pod environment variable when creating the pod in
-      the UI. This is RunPod's actual supported stop mechanism — guaranteed
-      to behave like clicking "Stop": compute billing stops, Volume Disk
-      (/workspace) is preserved. RUNPOD_POD_ID is auto-injected into every
-      pod; RUNPOD_API_KEY is not — you opt in by adding it yourself.
-   2. Fallback if no API key/runpodctl available: kill PID 1 inside the
-      container, which ends the container — RunPod reports this as the pod
-      exiting, same billing/storage effect as (1) in practice, but it's a
-      container-exit side effect rather than a documented API contract, so
-      it's not guaranteed. Confirmed against RunPod's ToS: nothing prohibits
-      ending your own pod's process (the "undue burden on system resources"
-      clause targets abuse of shared infra, not ending your own compute
-      early). Still, watch the dashboard the first time to confirm it flips
-      to "Stopped" rather than restarting.
-  NEVER use "Terminate" without downloading /workspace first — unlike Stop,
-  Terminate deletes the Volume Disk along with the pod.
+  Identical two-tier mechanism to the GPT-2 script (runpodctl if
+  RUNPOD_API_KEY is set, else kill PID 1). See that script's docstring for
+  the full reasoning; not repeated here.
 """
 
 import contextlib
@@ -95,17 +100,19 @@ os.environ.setdefault("HF_HOME", "/root/.cache/huggingface")
 # Paths
 # ─────────────────────────────────────────────────────────────────────────────
 
-OUT_ROOT = "/workspace/results/gpt2_lambda_sweep"
+OUT_ROOT = "/workspace/results/opt125m_lambda_sweep"
 
 N_LAYERS    = 12
-N_INTER     = 3072   # intermediate (c_fc output) neurons per MLP block
-EMBED_DIM   = 768    # GPT-2 small hidden size
+N_INTER     = 3072   # intermediate (fc1 output) neurons per FFN block
+EMBED_DIM   = 768    # OPT-125M hidden size
 LAYER_SHAPE = (N_INTER, EMBED_DIM)   # [out_nodes, in_features] per layer
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pruner — inlined from src/pruners/bilstm.py (+ binary_ste from mlp.py) so
 # this file has zero local-repo imports and can be pulled/run standalone.
+# Identical to train_pruner_gpt2.py's copy — architecture doesn't depend on
+# the base model.
 # ─────────────────────────────────────────────────────────────────────────────
 
 def binary_ste(logits: torch.Tensor) -> torch.Tensor:
@@ -204,9 +211,9 @@ class Pruner(nn.Module):
 # Model loading
 # ─────────────────────────────────────────────────────────────────────────────
 
-def load_gpt2(device):
-    from transformers import GPT2LMHeadModel
-    model = GPT2LMHeadModel.from_pretrained("gpt2").to(device)
+def load_opt125m(device):
+    from transformers import OPTForCausalLM
+    model = OPTForCausalLM.from_pretrained("facebook/opt-125m").to(device)
     model.eval()
     for p in model.parameters():
         p.requires_grad_(False)
@@ -214,22 +221,22 @@ def load_gpt2(device):
 
 
 def get_mlp_weights(model) -> list[torch.Tensor]:
-    """Detached c_fc weights transposed to [out_nodes, in_features] = [3072, 768]."""
+    """
+    Detached fc1 weights, [out_nodes, in_features] = [3072, 768].
+    NO transpose: OPT's fc1 is a plain nn.Linear(768, 3072), weight already
+    stored [out_features, in_features] -- unlike GPT-2's Conv1D, which stores
+    [in, out] and needs .T. Adding .T here would silently transpose the input
+    the pruner sees.
+    """
     return [
-        model.transformer.h[i].mlp.c_fc.weight.T.detach()
+        model.model.decoder.layers[i].fc1.weight.detach()
         for i in range(N_LAYERS)
     ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Mixed precision — bf16 autocast around the frozen GPT-2 forward passes
-# (the dominant cost). bf16 shares fp32's exponent range so there's no
-# underflow/loss-scaling concern the way there is with fp16; GPT-2 is frozen
-# throughout, so this only affects forward-pass activations, not any trained
-# weights. The pruner itself (small matrices, STE threshold) stays in fp32 —
-# it's a negligible fraction of compute and the binary gate threshold is the
-# one place precision is worth keeping simple. CPU/MPS (local dev) skip
-# autocast entirely — this only engages Tensor Cores on CUDA.
+# Mixed precision — bf16 autocast around the frozen OPT forward passes
+# (the dominant cost). Identical reasoning to train_pruner_gpt2.py.
 # ─────────────────────────────────────────────────────────────────────────────
 
 def autocast_ctx(device):
@@ -239,20 +246,20 @@ def autocast_ctx(device):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Masked forward via pre-hooks on c_proj (post-GELU interception)
+# Masked forward via pre-hooks on fc2 (post-activation interception)
 # ─────────────────────────────────────────────────────────────────────────────
 
 @contextlib.contextmanager
 def apply_gates(model, gates):
-    """Multiply the 3072-dim post-GELU activation by gate before c_proj."""
+    """Multiply the 3072-dim post-activation output by gate before fc2."""
     hooks = []
-    for block, gate in zip(model.transformer.h, gates):
+    for block, gate in zip(model.model.decoder.layers, gates):
         def make_hook(g):
             def hook(module, args):
                 x = args[0]
                 return (x * g.view(1, 1, -1),)
             return hook
-        hooks.append(block.mlp.c_proj.register_forward_pre_hook(make_hook(gate)))
+        hooks.append(block.fc2.register_forward_pre_hook(make_hook(gate)))
     try:
         yield
     finally:
@@ -273,10 +280,10 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
     block boundaries (see evaluate() docstring).
     """
     from datasets import load_dataset
-    from transformers import GPT2TokenizerFast
+    from transformers import AutoTokenizer
     from torch.utils.data import DataLoader
 
-    tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+    tokenizer = AutoTokenizer.from_pretrained("facebook/opt-125m")
     raw = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1")
 
     def tokenize(examples):
@@ -307,7 +314,7 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
 
 @torch.no_grad()
 def evaluate(model, test_ids, device, gates=None, desc="eval",
-            max_length: int = 1024, stride: int = 512) -> float:
+            max_length: int = 2048, stride: int = 1024) -> float:
     """
     Returns cross-entropy loss (nats). Set gates=None for unpruned model.
 
@@ -316,10 +323,10 @@ def evaluate(model, test_ids, device, gates=None, desc="eval",
     stream in stride-token steps; at each step only the NEW (non-overlapping)
     `stride` tokens are scored (via -100 label-masking on the rest), so no
     token is double-counted and every scored token past the first window has
-    close to full max_length context. Non-overlapping block eval inflates ppl
-    because every block's leading tokens see artificially short context.
-    max_length=1024 is GPT-2 small's actual context window (independent of
-    the training seq_len, which can stay shorter for cost reasons).
+    close to full max_length context. Defaults are OPT-125M's actual context
+    window (2048) with the same 50%-overlap convention used for GPT-2's
+    smaller 1024-token window -- NOT the same absolute numbers, so don't
+    compare raw ppl across the two scripts without accounting for this.
     """
     total_len = test_ids.size(0)
     total_nll = total_tokens = 0
@@ -442,9 +449,9 @@ def plot_multiseed_comparison(per_lambda_stats, save_path):
                     textcoords="offset points", fontsize=10)
     ax.axhline(orig_ppl, color="steelblue", ls="--", lw=1.2,
                label=f"unpruned ppl = {orig_ppl:.2f}")
-    ax.set_xlabel("% MLP intermediate neurons pruned (avg over 12 blocks)")
+    ax.set_xlabel("% FFN intermediate neurons pruned (avg over 12 blocks)")
     ax.set_ylabel("pruned test perplexity")
-    ax.set_title("GPT-2 small MLP — multi-seed Pareto (mean ± stdev)", fontweight="bold")
+    ax.set_title("OPT-125M MLP — multi-seed Pareto (mean ± stdev)", fontweight="bold")
     ax.grid(alpha=0.3); ax.legend()
     fig.tight_layout(); fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -453,18 +460,9 @@ def plot_multiseed_comparison(per_lambda_stats, save_path):
 def plot_efficiency(per_lambda_stats, save_path):
     """
     efficiency = pct_pruned / exp(ΔCE),  ΔCE = ln(pruned_ppl_mean / orig_ppl)
-
-    Replaces the earlier `pct_pruned / max(ppl_drop, 0.5)` (2026-07-11):
-    that clamp goes flat (constant 0.5 denominator) whenever pruning
-    *improves* ppl (ΔCE < 0, seen throughout the v1 sweep — F16), destroying
-    all signal about how much it improved. exp(ΔCE) = pruned_ppl/orig_ppl is
-    smooth and strictly positive everywhere in the observed range (no finite
-    blow-up, unlike tan/sin candidates considered and rejected — tan hits a
-    real asymptote near ΔCE=±π/2, both tan and sin are odd functions so they
-    flip sign for ΔCE<0), monotonically increasing in ΔCE, and needs no
-    tuned floor constant: at ΔCE=0 this reduces to exactly pct_pruned (full
-    credit at zero cost); ΔCE<0 boosts it above pct_pruned; ΔCE>0 discounts
-    it below. See diary/crisp-findings.md Appendix G addendum.
+    Same formula and reasoning as train_pruner_gpt2.py's plot_efficiency() —
+    see that docstring / diary/crisp-findings.md for why this replaced the
+    earlier max(Δppl, 0.5) clamp.
     """
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     fig, ax = plt.subplots(figsize=(7, 5))
@@ -481,7 +479,7 @@ def plot_efficiency(per_lambda_stats, save_path):
     ax.set_xscale("log")
     ax.set_xlabel("λ (log scale)")
     ax.set_ylabel("efficiency  =  (% pruned) / exp(ΔCE)")
-    ax.set_title("GPT-2 small MLP — pruning efficiency vs λ", fontweight="bold")
+    ax.set_title("OPT-125M MLP — pruning efficiency vs λ", fontweight="bold")
     ax.grid(alpha=0.3, which="both")
     fig.tight_layout(); fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -497,13 +495,13 @@ def write_run_summary(path, lam, seed, history, per_layer_kept,
     final_gate = history["avg_gate"][-1]
     pct_pruned = (1 - final_gate) * 100
     lines = [
-        f"GPT-2 small MLP pruner — λ={lam}, seed={seed}",
-        f"layers : 12 MLP blocks, 3072 intermediate neurons each",
+        f"OPT-125M MLP pruner — λ={lam}, seed={seed}",
+        f"layers : 12 FFN blocks, 3072 intermediate neurons each",
         f"steps  : {len(history['loss'])}",
         f"time   : {total_time:.1f}s",
         "-" * 60,
         f"final avg keep gate          : {final_gate:.4f}",
-        f"final % MLP neurons pruned   : {pct_pruned:.2f}%",
+        f"final % FFN neurons pruned   : {pct_pruned:.2f}%",
         f"per-block neurons kept       : {per_layer_kept}",
         "-" * 60,
         f"FULL test set (WikiText-2):",
@@ -610,7 +608,7 @@ def train_one(lam, seed, model, train_loader, test_ids, args, device, run_dir):
     plot_one_run(
         history,
         os.path.join(run_dir, "plot.png"),
-        title=(f"GPT-2 small MLP pruner — λ={lam} seed={seed} — "
+        title=(f"OPT-125M MLP pruner — λ={lam} seed={seed} — "
                f"{pct_pruned:.1f}% pruned, ppl {pruned_ppl:.2f}"),
     )
     write_run_summary(
@@ -685,12 +683,16 @@ def main():
     ap.add_argument("--lstm_hidden",  type=int,   default=128)
     ap.add_argument("--lr",           type=float, default=0.001)
     ap.add_argument("--log_every",    type=int,   default=250)
-    ap.add_argument("--eval_max_length", type=int, default=1024,
-                    help="Sliding-window eval context length (GPT-2 small's "
-                         "actual n_positions). Independent of --seq_len.")
-    ap.add_argument("--eval_stride",  type=int,   default=512,
-                    help="Sliding-window eval stride (512 = 50%% overlap, "
-                         "the standard tradeoff point).")
+    ap.add_argument("--eval_max_length", type=int, default=2048,
+                    help="Sliding-window eval context length (OPT-125M's "
+                         "actual max_position_embeddings). Independent of "
+                         "--seq_len. NOT the same as GPT-2 script's default "
+                         "(1024) -- don't compare raw ppl across scripts "
+                         "without matching this too.")
+    ap.add_argument("--eval_stride",  type=int,   default=1024,
+                    help="Sliding-window eval stride (1024 = 50%% overlap "
+                         "of eval_max_length, same convention as the GPT-2 "
+                         "script's 512/1024).")
     ap.add_argument("--device",       type=str,   default="cuda")
     ap.add_argument("--out_dir",      type=str,   default=OUT_ROOT)
     ap.add_argument("--timing_probe", action="store_true",
@@ -712,10 +714,10 @@ def main():
     print(f"Device: {device} | λs={args.lambdas} | seeds={args.seeds} | steps={args.steps}")
     print(f"Output: {out_root}")
 
-    print("Loading GPT-2 small (downloads ~500MB on first run) ...", flush=True)
-    model = load_gpt2(device)
+    print("Loading OPT-125M (downloads ~500MB on first run) ...", flush=True)
+    model = load_opt125m(device)
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"GPT-2 small loaded — {n_params:,} params, frozen.", flush=True)
+    print(f"OPT-125M loaded — {n_params:,} params, frozen.", flush=True)
 
     print("Loading WikiText-2 (downloads on first run) ...", flush=True)
     train_loader, test_ids = get_loaders(args.seq_len, args.batch_size)
@@ -766,7 +768,7 @@ def main():
     plot_multiseed_comparison(per_lambda_stats, os.path.join(out_root, "comparison.png"))
     plot_efficiency(per_lambda_stats, os.path.join(out_root, "efficiency.png"))
 
-    header = (f"GPT-2 small MLP pruner — λ sweep | "
+    header = (f"OPT-125M MLP pruner — λ sweep | "
               f"seeds={args.seeds} | steps={args.steps} | device={device}")
     sep = "-" * 90
     col = (f"{'lambda':>7} {'seed':>5} | {'% pruned':>9} | "

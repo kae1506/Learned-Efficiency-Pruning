@@ -72,22 +72,46 @@ class Pruner(nn.Module):
         nn.init.zeros_(self.context_head.weight)
         nn.init.zeros_(self.context_head.bias)
 
-    def _node_scores(self, weight_matrices: list[torch.Tensor]) -> list[torch.Tensor]:
+    def _node_scores(
+        self,
+        weight_matrices: list[torch.Tensor],
+        layer_indices: list[int] | None = None,
+    ) -> list[torch.Tensor]:
         """
         Continuous per-node importance logits (pre-threshold). Higher = more
         likely kept; the keep decision in forward() is sigmoid(score) > 0.5,
         i.e. score > 0. Exposed via scores() for threshold/ranking sweeps.
+
+        layer_indices: optional list, same length as weight_matrices, giving
+        each matrix's true layer index into self.row_encoders /
+        self.layer_projectors -- lets a caller score a SUBSET of layers (e.g.
+        stochastic layer-subset training: sample k of N layers per step,
+        score only those) instead of the full ordered list. Defaults to
+        range(len(weight_matrices)) -- i.e. "weight_matrices is already the
+        complete ordered list" -- identical to the original behavior; every
+        existing caller passes only weight_matrices and is unaffected.
+
+        Note: the BiLSTM only sees the layers actually passed in, in the
+        order given. If layer_indices is a strict subset, "cross-layer
+        context" is computed over that subset's sequence, not the true full
+        network sequence -- a real property of subset training (a layer's
+        BiLSTM neighbors change depending on which other layers happen to be
+        sampled alongside it that step), not a bug. See
+        diary/engineering_decisions.md for the tradeoff this was accepted for.
         """
+        if layer_indices is None:
+            layer_indices = range(len(weight_matrices))
+
         # ── Per-node logits ───────────────────────────────────────────────────
         node_logits = [
-            enc(W).squeeze(-1)
-            for enc, W in zip(self.row_encoders, weight_matrices)
+            self.row_encoders[i](W).squeeze(-1)
+            for i, W in zip(layer_indices, weight_matrices)
         ]
 
         # ── Layer-level embeddings ─────────────────────────────────────────────
         layer_embeds = [
-            F.relu(proj(W.mean(dim=0)))
-            for proj, W in zip(self.layer_projectors, weight_matrices)
+            F.relu(self.layer_projectors[i](W.mean(dim=0)))
+            for i, W in zip(layer_indices, weight_matrices)
         ]
 
         # BiLSTM over layer sequence: [1, num_layers, lstm_hidden]
@@ -103,14 +127,23 @@ class Pruner(nn.Module):
 
         return [logits + ctx for logits, ctx in zip(node_logits, context_biases)]
 
-    def forward(self, weight_matrices: list[torch.Tensor]) -> list[torch.Tensor]:
+    def forward(
+        self,
+        weight_matrices: list[torch.Tensor],
+        layer_indices: list[int] | None = None,
+    ) -> list[torch.Tensor]:
         """
         weight_matrices: list of [out_nodes, in_features] detached tensors.
+        layer_indices: see _node_scores -- optional subset support.
         Returns: list of hard binary gate tensors [out_nodes] per layer.
         """
-        return [binary_ste(s) for s in self._node_scores(weight_matrices)]
+        return [binary_ste(s) for s in self._node_scores(weight_matrices, layer_indices)]
 
     @torch.no_grad()
-    def scores(self, weight_matrices: list[torch.Tensor]) -> list[torch.Tensor]:
+    def scores(
+        self,
+        weight_matrices: list[torch.Tensor],
+        layer_indices: list[int] | None = None,
+    ) -> list[torch.Tensor]:
         """Continuous per-node importance logits (no grad) for ranking sweeps."""
-        return self._node_scores(weight_matrices)
+        return self._node_scores(weight_matrices, layer_indices)

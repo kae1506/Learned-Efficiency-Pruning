@@ -1,0 +1,13 @@
+GPT-2 small MLP pruner — λ=0.55, seed=0
+layers : 12 MLP blocks, 3072 intermediate neurons each
+steps  : 18750
+time   : 1648.5s
+------------------------------------------------------------
+final avg keep gate          : 0.7524
+final % MLP neurons pruned   : 24.76%
+per-block neurons kept       : [2655, 1711, 1975, 2406, 2348, 2312, 2450, 2281, 2375, 2325, 2504, 2326]
+------------------------------------------------------------
+FULL test set (WikiText-2):
+  original  ppl              : 25.109
+  pruned    ppl              : 30.659
+  ppl increase               : +5.550

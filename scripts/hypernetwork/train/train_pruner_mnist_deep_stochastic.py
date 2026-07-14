@@ -43,10 +43,12 @@ dimension reduction -- the frozen base model's forward/backward FLOPs are
 the same either way. This tests optimization dynamics / final mask quality
 at MATCHED total steps, not wall-clock efficiency.
 
-PER-LAYER %KEPT TRACKING: a layer not sampled this step has no fresh reading
-this step. History carries forward the LAST COMPUTED value for that layer
-(a step function) rather than resetting it to "100% kept" -- see
-train_one()'s `last_known` array.
+PER-LAYER %KEPT TRACKING: full per-step history is kept for all N_LAYERS.
+A layer not sampled this step has NO fresh gate computed for it and is
+simply ungated (100% kept) for that step's forward pass -- see
+masked_forward_partial -- so its history entry for that step is recorded
+as 1.0 (100% kept), not carried forward from its last sampled value. This
+is a per-step snapshot, not a memory of past gates.
 
 Base model: experiments/checkpoints/mnist_deep4x512.pt (784->512x4->10,
 1.86M-ish? no -- 4x512 hidden, dropout 0.1). Comparison baseline: identical
@@ -266,12 +268,39 @@ def plot_one_run(history, full_eval_history, save_path, title):
         for i in range(N_LAYERS):
             axes[2].scatter(e["step"], (1 - e["per_layer_kept"][i]) * 100,
                             color=cmap[i], marker="x", s=50, zorder=5)
-    axes[2].set_title("per-layer % pruned (line=carried-forward proxy, x=full eval)")
+    axes[2].set_title("per-layer % pruned (line=per-step, 0% when unsampled; x=full eval)")
     axes[2].set_xlabel("step"); axes[2].set_ylabel("% pruned"); axes[2].set_ylim(0, 100)
     axes[2].grid(alpha=0.3); axes[2].legend(ncol=2, fontsize=7)
 
     fig.tight_layout()
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_efficiency_vs_lambda(results, save_path):
+    """results: list of dicts with mode, lambda, seed, efficiency (= pct_pruned / acc_drop_pp)."""
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    fig, ax = plt.subplots(figsize=(7, 5.5))
+    colors = {"baseline": "steelblue", "stochastic": "tomato"}
+    for mode in colors:
+        rows = [r for r in results if r["mode"] == mode]
+        if not rows:
+            continue
+        by_lam = {}
+        for r in rows:
+            by_lam.setdefault(r["lambda"], []).append(r)
+        lams = sorted(by_lam)
+        ys   = [np.mean([r["efficiency"] for r in by_lam[l]]) for l in lams]
+        yerr = [np.std([r["efficiency"]  for r in by_lam[l]]) for l in lams]
+        ax.errorbar(lams, ys, yerr=yerr, fmt="o-", color=colors[mode],
+                    markersize=8, capsize=4, lw=1.5, label=mode)
+    ax.set_xscale("log")
+    ax.set_xlabel("λ (sparsity weight)")
+    ax.set_ylabel("efficiency = % pruned / accuracy drop (pp)")
+    ax.set_title("MNIST deep4x512 — efficiency vs λ, baseline vs. stochastic-subset",
+                fontweight="bold")
+    ax.grid(alpha=0.3, which="both"); ax.legend()
+    fig.tight_layout(); fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -326,7 +355,6 @@ def train_one(mode, lam, seed, model, train_loader, test_loader, args, device, r
         "per_layer_keep": [[] for _ in range(N_LAYERS)],
     }
     full_eval_history = []
-    last_known = [1.0] * N_LAYERS   # carried-forward per-layer keep fraction
 
     it = iter(train_loader)
     t0 = time.time()
@@ -343,18 +371,21 @@ def train_one(mode, lam, seed, model, train_loader, test_loader, args, device, r
 
         if mode == "baseline":
             m = baseline_pruner_step(pruner, model, opt, x, y, lam)
-            for i in range(N_LAYERS):
-                last_known[i] = m["per_layer_keep"][i]
+            step_keep = m["per_layer_keep"]
         else:
             m = stochastic_pruner_step(pruner, model, opt, x, y, lam, args.k)
+            # Unsampled layers get NO fresh gate this step -- they're ungated
+            # (100% kept) in the forward pass, so record 1.0, not a carried-
+            # forward value from whenever they were last sampled.
+            step_keep = [1.0] * N_LAYERS
             for i, v in m["fresh_keep"].items():
-                last_known[i] = v
+                step_keep[i] = v
 
         history["loss"].append(m["loss"])
         history["orig_acc"].append(m["orig_acc"])
         history["pruned_acc"].append(m["pruned_acc"])
         for i in range(N_LAYERS):
-            history["per_layer_keep"][i].append(last_known[i])
+            history["per_layer_keep"][i].append(step_keep[i])
 
         pbar.update(1)
         pbar.set_postfix(loss=f"{m['loss']:+.3f}", refresh=False)
@@ -458,6 +489,14 @@ def main():
 
     train_loader, test_loader = get_mnist_loaders(args.data_dir, args.batch_size)
 
+    # Unpruned frozen-model accuracy, computed once (model never changes) --
+    # denominator for efficiency = %pruned / accuracy-drop-pp. all-ones gates
+    # through the same evaluate_with_gates codepath used everywhere else, so
+    # it's directly comparable to every "final test accuracy" number below.
+    all_ones_gates = [torch.ones(w.shape[0], device=device) for w in get_hidden_weights(model)]
+    orig_test_acc = evaluate_with_gates(model, all_ones_gates, test_loader, device)
+    print(f"Unpruned frozen-model test accuracy: {orig_test_acc:.4f}")
+
     os.makedirs(args.out_dir, exist_ok=True)
     all_results = []
     total_runs = len(args.modes) * len(args.lambdas) * len(args.seeds)
@@ -471,19 +510,29 @@ def main():
                 run_dir = os.path.join(args.out_dir, mode, f"lambda_{lam}", f"seed_{seed}")
                 res = train_one(mode, lam, seed, model, train_loader, test_loader,
                                 args, device, run_dir)
+                acc_drop_pp = (orig_test_acc - res["test_acc"]) * 100
+                res["acc_drop_pp"] = acc_drop_pp
+                # acc_drop_pp <= 0 (pruned model matches/beats the unpruned one on
+                # this seed, plausible noise at light pruning) makes the ratio
+                # blow up or flip sign -- flagged, not silently clamped.
+                res["efficiency"] = res["pct_pruned"] / acc_drop_pp if acc_drop_pp > 0 else float("nan")
                 all_results.append(res)
 
     plot_mode_comparison(all_results, os.path.join(args.out_dir, "mode_comparison.png"))
+    plot_efficiency_vs_lambda(all_results, os.path.join(args.out_dir, "efficiency_vs_lambda.png"))
 
     with open(os.path.join(args.out_dir, "summary.txt"), "w") as f:
         f.write(f"MNIST deep4x512 — baseline vs stochastic (k={args.k}/{N_LAYERS}) | "
                 f"steps={args.steps} | seeds={args.seeds}\n")
-        f.write("-" * 80 + "\n")
-        f.write(f"{'mode':>10} {'lambda':>7} {'seed':>5} | {'% pruned':>9} | {'test_acc':>9}\n")
-        f.write("-" * 80 + "\n")
+        f.write(f"unpruned frozen-model test accuracy: {orig_test_acc:.4f}\n")
+        f.write("-" * 96 + "\n")
+        f.write(f"{'mode':>10} {'lambda':>7} {'seed':>5} | {'% pruned':>9} | "
+                f"{'test_acc':>9} | {'drop_pp':>8} | {'efficiency':>10}\n")
+        f.write("-" * 96 + "\n")
         for r in all_results:
             f.write(f"{r['mode']:>10} {r['lambda']:>7} {r['seed']:>5} | "
-                    f"{r['pct_pruned']:>8.2f}% | {r['test_acc']:>9.4f}\n")
+                    f"{r['pct_pruned']:>8.2f}% | {r['test_acc']:>9.4f} | "
+                    f"{r['acc_drop_pp']:>7.2f}p | {r['efficiency']:>10.2f}\n")
     print(f"\nResults → {args.out_dir}/")
 
 

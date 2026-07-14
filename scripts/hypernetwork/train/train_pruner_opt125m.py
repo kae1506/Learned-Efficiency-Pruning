@@ -216,7 +216,14 @@ def load_opt125m(device):
     # use_safetensors=True: avoids transformers falling back to a .bin checkpoint,
     # which invokes torch.load and hard-errors on torch<2.6 (CVE-driven check).
     # facebook/opt-125m ships a .safetensors file on the hub, so this is free.
-    model = OPTForCausalLM.from_pretrained("facebook/opt-125m", use_safetensors=True).to(device)
+    # torch_dtype=torch.float32: the hub checkpoint is stored in fp16 (Meta's
+    # native release dtype). Without forcing fp32, from_pretrained loads Half
+    # weights, which then mismatch the Pruner's fp32 nn.Linear layers in
+    # get_mlp_weights() -> F.linear (mat1/mat2 dtype error). bf16 autocast
+    # during training still applies on top of this fp32 base, same as GPT-2.
+    model = OPTForCausalLM.from_pretrained(
+        "facebook/opt-125m", use_safetensors=True, torch_dtype=torch.float32
+    ).to(device)
     model.eval()
     for p in model.parameters():
         p.requires_grad_(False)

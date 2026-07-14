@@ -79,6 +79,7 @@ STOPPING THE POD (--stop_pod):
 """
 
 import contextlib
+import itertools
 import os
 import shutil
 import signal
@@ -318,13 +319,20 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
     train_loader = DataLoader(train_blocked, batch_size=batch_size,
                               shuffle=True, num_workers=num_workers)
 
-    test_ids  = torch.tensor(sum(tokenized["test"]["input_ids"],  []), dtype=torch.long)
+    # itertools.chain.from_iterable, not sum(lists, []): sum() concatenates
+    # via repeated list '+', which copies the whole accumulator each time --
+    # O(k*N) for k sublists / N total tokens. Fine for test's ~4.4K rows,
+    # but train has ~36.7K rows -- sum() there is ~80x worse (~10^11 element
+    # copies) and looks like a hang with no progress bar. chain is O(N).
+    test_ids  = torch.tensor(list(itertools.chain.from_iterable(
+        tokenized["test"]["input_ids"])), dtype=torch.long)
     # Flat train stream, same construction as test_ids -- lets evaluate()'s
     # sliding-window protocol run identically over train, for the
     # --improvement_result train-vs-test comparison. Unused by normal
     # training (train_loader is what's used there), so this costs one
-    # cheap concatenation on top of what get_loaders() already does.
-    train_ids = torch.tensor(sum(tokenized["train"]["input_ids"], []), dtype=torch.long)
+    # cheap pass on top of what get_loaders() already does.
+    train_ids = torch.tensor(list(itertools.chain.from_iterable(
+        tokenized["train"]["input_ids"])), dtype=torch.long)
 
     return train_loader, train_ids, test_ids
 

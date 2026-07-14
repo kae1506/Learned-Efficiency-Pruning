@@ -213,7 +213,10 @@ class Pruner(nn.Module):
 
 def load_opt125m(device):
     from transformers import OPTForCausalLM
-    model = OPTForCausalLM.from_pretrained("facebook/opt-125m").to(device)
+    # use_safetensors=True: avoids transformers falling back to a .bin checkpoint,
+    # which invokes torch.load and hard-errors on torch<2.6 (CVE-driven check).
+    # facebook/opt-125m ships a .safetensors file on the hub, so this is free.
+    model = OPTForCausalLM.from_pretrained("facebook/opt-125m", use_safetensors=True).to(device)
     model.eval()
     for p in model.parameters():
         p.requires_grad_(False)

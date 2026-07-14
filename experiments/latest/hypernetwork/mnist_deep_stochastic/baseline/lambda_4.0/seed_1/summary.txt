@@ -1,0 +1,14 @@
+MNIST deep4x512 pruner — mode=baseline λ=4.0 seed=1
+layers : 4 hidden blocks, 512 neurons each
+steps  : 1000
+time   : 34.2s
+------------------------------------------------------------
+final % pruned (full joint)  : 100.00%
+final per-layer kept          : [0.0, 0.0, 0.0, 0.0]
+final test accuracy            : 0.0974
+------------------------------------------------------------
+full-eval history (step, test_acc, per_layer_kept):
+    250  0.0974  [0.0, 0.0, 0.0, 0.001953125]
+    500  0.0974  [0.0, 0.0, 0.0, 0.0]
+    750  0.0974  [0.0, 0.0, 0.0, 0.0]
+   1000  0.0974  [0.0, 0.0, 0.0, 0.0]

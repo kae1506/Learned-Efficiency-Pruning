@@ -1,0 +1,13 @@
+OPT-125M MLP pruner — λ=0.02, seed=1
+layers : 12 FFN blocks, 3072 intermediate neurons each
+steps  : 18750
+time   : 1747.9s
+------------------------------------------------------------
+final avg keep gate          : 0.8092
+final % FFN neurons pruned   : 19.08%
+per-block neurons kept       : [2788, 2481, 2196, 1406, 2498, 2432, 2675, 2511, 2651, 2620, 2685, 2909]
+------------------------------------------------------------
+FULL test set (WikiText-2):
+  original  ppl              : 49.038
+  pruned    ppl              : 25.297
+  ppl increase               : -23.741

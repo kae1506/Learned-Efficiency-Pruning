@@ -307,7 +307,8 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
 
 @torch.no_grad()
 def evaluate(model, test_ids, device, gates=None, desc="eval",
-            max_length: int = 1024, stride: int = 512) -> float:
+            max_length: int = 1024, stride: int = 512,
+            apply_gates_fn=None) -> float:
     """
     Returns cross-entropy loss (nats). Set gates=None for unpruned model.
 
@@ -320,7 +321,19 @@ def evaluate(model, test_ids, device, gates=None, desc="eval",
     because every block's leading tokens see artificially short context.
     max_length=1024 is GPT-2 small's actual context window (independent of
     the training seq_len, which can stay shorter for cost reasons).
+
+    apply_gates_fn: defaults to THIS module's own apply_gates (GPT-2-specific)
+    -- every call within this file relies on that default and is unaffected.
+    Callers evaluating a DIFFERENT architecture (e.g. train_pruner_pg19_sweep.py
+    evaluating OPT-125M) must pass their own apply_gates_fn explicitly --
+    a bare `apply_gates` reference here resolves via THIS module's globals
+    regardless of which module calls evaluate(), so relying on the default
+    for a non-GPT-2 model silently runs GPT-2's hook logic on the wrong
+    architecture (crashes for OPT-125M: no `.transformer` attribute).
     """
+    if apply_gates_fn is None:
+        apply_gates_fn = apply_gates
+
     total_len = test_ids.size(0)
     total_nll = total_tokens = 0
     prev_end = 0
@@ -336,7 +349,7 @@ def evaluate(model, test_ids, device, gates=None, desc="eval",
             if gates is None:
                 loss = model(ids, labels=labels).loss
             else:
-                with apply_gates(model, gates):
+                with apply_gates_fn(model, gates):
                     loss = model(ids, labels=labels).loss
 
         n_tok = (labels[:, 1:] != -100).sum().item()

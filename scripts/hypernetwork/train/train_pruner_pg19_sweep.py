@@ -424,10 +424,16 @@ def train_one(model_name, model, train_loader, test_ids, lam, seed, args, device
         final_gates = pruner(spec["get_mlp_weights"](model))
     per_layer_kept = [int(g.sum().item()) for g in final_gates]
 
+    # apply_gates_fn explicit, not relying on evaluate()'s default -- that
+    # default resolves to GPT-2's apply_gates regardless of caller (it's
+    # defined in train_pruner_gpt2.py), which would silently run GPT-2's
+    # hook logic against OPT-125M and crash (no `.transformer` attribute).
     orig_ce = evaluate(model, test_ids, device, gates=None, desc=f"[{tag}] eval orig",
-                       max_length=spec["eval_max_length"], stride=spec["eval_stride"])
+                       max_length=spec["eval_max_length"], stride=spec["eval_stride"],
+                       apply_gates_fn=spec["apply_gates"])
     pruned_ce = evaluate(model, test_ids, device, gates=final_gates, desc=f"[{tag}] eval pruned",
-                         max_length=spec["eval_max_length"], stride=spec["eval_stride"])
+                         max_length=spec["eval_max_length"], stride=spec["eval_stride"],
+                         apply_gates_fn=spec["apply_gates"])
     orig_ppl, pruned_ppl = float(np.exp(orig_ce)), float(np.exp(pruned_ce))
 
     final_gate = history["avg_gate"][-1]
@@ -497,11 +503,17 @@ def main():
                          "a given λ produces in terms of %%pruned, see the "
                          "chat discussion. Printed at startup either way.")
     ap.add_argument("--seq_len", type=int, default=512)
-    ap.add_argument("--n_train_tokens", type=int, default=2_400_000,
-                    help="pg19 train tokens to stream+cache, roughly matching "
-                         "WikiText-2's own train-set scale. The training loop "
-                         "cycles via StopIteration if this is smaller than a "
-                         "full epoch's worth of steps, same as every prior sweep.")
+    ap.add_argument("--n_train_tokens", type=int, default=None,
+                    help="pg19 train tokens to stream+cache. Default (None) "
+                         "computes steps*batch_size*seq_len -- exactly one "
+                         "full epoch, zero repeats -- rather than a smaller "
+                         "cap that cycles through a narrow slice many times "
+                         "(pg19's long documents mean a small cap covers very "
+                         "few distinct books, unlike WikiText-2's short, "
+                         "diverse articles; repeated passes over ~40 books "
+                         "risk overfitting to that specific pool -- see the "
+                         "B6 sweep discussion). Override explicitly to force "
+                         "cycling instead.")
     ap.add_argument("--n_test_tokens", type=int, default=245_000,
                     help="Matches WikiText-2 test's token count for comparable "
                          "statistical power in the eval CE.")
@@ -517,6 +529,11 @@ def main():
     ap.add_argument("--stop_pod", action="store_true")
     args = ap.parse_args()
     out_root = args.out_dir
+
+    if args.n_train_tokens is None:
+        args.n_train_tokens = args.steps * args.batch_size * args.seq_len
+        print(f"--n_train_tokens not set, defaulting to one full epoch "
+              f"(steps*batch_size*seq_len = {args.n_train_tokens:,} tokens, zero repeats)")
 
     if args.device == "cuda" and torch.cuda.is_available():
         device = torch.device("cuda")

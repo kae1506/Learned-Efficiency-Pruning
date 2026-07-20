@@ -79,7 +79,6 @@ STOPPING THE POD (--stop_pod):
 """
 
 import contextlib
-import itertools
 import os
 import shutil
 import signal
@@ -294,45 +293,44 @@ def get_loaders(seq_len: int, batch_size: int, num_workers: int = 2):
     Test: returned as ONE flat token stream (not chunked/batched) — evaluate()
     walks it with a sliding window so eval isn't penalized by short-context
     block boundaries (see evaluate() docstring).
+
+    Tokenization: each split's raw lines are joined into ONE string
+    ("\\n\\n".join(...), the convention used by GPT-2/SparseGPT/Wanda/GPTQ
+    for WikiText-2) and tokenized ONCE per split -- not per line. This
+    matters specifically for OPT: AutoTokenizer.from_pretrained
+    ("facebook/opt-125m") has add_bos_token=True by default, so the
+    previous per-line tokenize(examples["text"]) call (wikitext-2-raw's
+    test split is 4,358 lines, many blank/near-blank structural
+    separators) prepended a spurious BOS/EOS (token id 2) to EVERY line
+    independently -- scattering ~4,358 false "start of document" resets
+    through what should be one continuous corpus. OPT was pretrained
+    treating id 2 as a genuine context-reset signal, so this systematically
+    degraded next-token prediction throughout the eval stream. Joining
+    first means exactly one BOS lands at the true start of the corpus,
+    matching how the model was pretrained and how GPT-2's sibling script
+    was already (correctly, since GPT-2's tokenizer has no such default)
+    being read.
     """
-    from datasets import load_dataset
+    from datasets import load_dataset, Dataset
     from transformers import AutoTokenizer
     from torch.utils.data import DataLoader
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/opt-125m")
     raw = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1")
 
-    def tokenize(examples):
-        return tokenizer(examples["text"])
+    def tokenize_split(split):
+        return tokenizer("\n\n".join(raw[split]["text"]))["input_ids"]
 
-    def group(examples):
-        ids = sum(examples["input_ids"], [])
-        total = (len(ids) // seq_len) * seq_len
-        blocks = [ids[i:i + seq_len] for i in range(0, total, seq_len)]
-        return {"input_ids": blocks}
+    test_ids  = torch.tensor(tokenize_split("test"),  dtype=torch.long)
+    train_ids = torch.tensor(tokenize_split("train"), dtype=torch.long)
 
-    tokenized = raw.map(tokenize, batched=True, remove_columns=["text"])
-
-    train_blocked = tokenized["train"].map(group, batched=True,
-                                           remove_columns=tokenized["train"].column_names)
+    total = (train_ids.size(0) // seq_len) * seq_len
+    train_blocked = Dataset.from_dict(
+        {"input_ids": train_ids[:total].view(-1, seq_len).tolist()}
+    )
     train_blocked.set_format(type="torch", columns=["input_ids"])
     train_loader = DataLoader(train_blocked, batch_size=batch_size,
                               shuffle=True, num_workers=num_workers)
-
-    # itertools.chain.from_iterable, not sum(lists, []): sum() concatenates
-    # via repeated list '+', which copies the whole accumulator each time --
-    # O(k*N) for k sublists / N total tokens. Fine for test's ~4.4K rows,
-    # but train has ~36.7K rows -- sum() there is ~80x worse (~10^11 element
-    # copies) and looks like a hang with no progress bar. chain is O(N).
-    test_ids  = torch.tensor(list(itertools.chain.from_iterable(
-        tokenized["test"]["input_ids"])), dtype=torch.long)
-    # Flat train stream, same construction as test_ids -- lets evaluate()'s
-    # sliding-window protocol run identically over train, for the
-    # --improvement_result train-vs-test comparison. Unused by normal
-    # training (train_loader is what's used there), so this costs one
-    # cheap pass on top of what get_loaders() already does.
-    train_ids = torch.tensor(list(itertools.chain.from_iterable(
-        tokenized["train"]["input_ids"])), dtype=torch.long)
 
     return train_loader, train_ids, test_ids
 

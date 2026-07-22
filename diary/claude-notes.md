@@ -618,6 +618,6 @@ The instability is concentrated in fc2 specifically — fc1 stays at ~160/1024 a
 
 ### Code / artifacts
 
-- Scripts: `scripts/hypernetwork/train/train_pruner_cifar.py` (initial 4-λ wide sweep), `scripts/hypernetwork/train/train_pruner_cifar_fine.py` (4-λ × 3-seed fine sweep, with per-layer live log + per-layer plot panels).
+- Scripts: `scripts/hypernetwork/train/mnist_cifar/train_pruner_cifar.py` (initial 4-λ wide sweep), `scripts/hypernetwork/train/mnist_cifar/train_pruner_cifar_fine.py` (4-λ × 3-seed fine sweep, with per-layer live log + per-layer plot panels).
 - Outputs: `experiments/latest/hypernetwork/cifar_lambda_sweep/` (1-seed), `experiments/latest/hypernetwork/cifar_lambda_fine/` (3-seed, comparison.png, per-(λ, seed) plot.png + summary.txt).
 - One bug found and fixed mid-run: `masked_forward` originally used `model.conv2(x)` and `model.conv3(x)` (should have been `(h)` to chain). Pre-fix run crashed at step 1; post-fix sweep completed cleanly.

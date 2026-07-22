@@ -1,0 +1,26 @@
+============================================================
+ACTIVATION PRUNING BASELINE — OPT-125M FFN, WikiText-2
+Date: 2026-07-20 14:57:26
+============================================================
+
+ALGORITHM
+  Mean post-ReLU activation per FFN neuron (hooked at fc2's
+  forward_pre_hook, same point the trained BiLSTM pruner gates),
+  over 50 calibration batches (204,800 tokens)
+  of WikiText-2 train. Global magnitude threshold picked to match
+  42.56% pruned (= trained pruner's actual λ=0.75 sparsity,
+  21175/36864 kept, the mask that produced its reported ppl=27.086 —
+  NOT its training-loop 'final avg keep gate' snapshot of 44.76%).
+
+RESULTS
+  neurons pruned : 15689/36864 (42.56%)
+  per-layer kept : [2483, 473, 538, 391, 872, 1533, 1922, 2129, 2389, 2680, 2842, 2923]
+  orig ppl       : 23.944
+  pruned ppl     : 43.818
+  ppl change     : +19.873
+
+COMPARISON — trained BiLSTM pruner, λ=0.75, same eval protocol:
+  orig ppl   : 23.941
+  pruned ppl : 27.086  (42.56% pruned)
+  ppl change : +3.145
+============================================================

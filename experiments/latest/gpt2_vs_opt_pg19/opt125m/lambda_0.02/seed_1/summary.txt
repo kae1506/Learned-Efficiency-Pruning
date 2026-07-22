@@ -1,0 +1,13 @@
+OPT-125M MLP pruner (pg19) — λ=0.02, seed=1
+layers : 12 MLP blocks, 3072 intermediate neurons each
+steps  : 18750
+time   : 806.4s
+------------------------------------------------------------
+final avg keep gate          : 0.8114
+final % MLP neurons pruned   : 18.86%
+per-block neurons kept       : [2883, 2382, 2027, 1385, 2226, 2517, 2638, 2762, 2810, 2732, 2707, 2993]
+------------------------------------------------------------
+pg19 test set:
+  original  ppl              : 31.528
+  pruned    ppl              : 33.340
+  ppl increase               : +1.812

@@ -1,0 +1,15 @@
+OPT-125M MLP pruner — λ=0.05, seed=0 — CONVERGENCE-BASED STOPPING
+layers : 12 FFN blocks, 3072 intermediate neurons each
+steps taken       : 1050
+converged         : True (max_steps cap = 18000)
+convergence check : window=5 x check_every=50 (250 steps flat) | rel_tol=0.05 abs_tol=0.01 | burn_in=500
+time              : 33.9s
+------------------------------------------------------------
+final avg keep gate          : 0.8351
+final % FFN neurons pruned   : 16.49%
+per-block neurons kept       : [2935, 2519, 2227, 1375, 2491, 2695, 2745, 2782, 2752, 2695, 2774, 2918]
+------------------------------------------------------------
+FULL test set (WikiText-2):
+  original  ppl              : 23.941
+  pruned    ppl              : 22.532
+  ppl increase               : -1.409

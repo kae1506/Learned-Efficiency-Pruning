@@ -77,8 +77,8 @@ OUT_ROOT = "/workspace/results/pg19_capacity_2x_sweep"
 # Verified via direct Pruner instantiation (see module docstring), not
 # just computed by hand: base (64,128) = 2,037,517 params;
 # (144,216) = 4,075,069 params; ratio = 2.0000.
-PRUNER_2X_EMBED_DIM = 144
-PRUNER_2X_LSTM_HIDDEN = 216
+PRUNER_2X_EMBED_DIM = 128
+PRUNER_2X_LSTM_HIDDEN = 256
 
 # Same 4 lambdas for both models, all already in train_pruner_pg19_converge
 # .py's 9-point default grid -- see module docstring for why these four.

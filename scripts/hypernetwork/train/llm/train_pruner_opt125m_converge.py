@@ -249,7 +249,7 @@ def main():
     ap.add_argument("--rel_tol", type=float, default=0.05)
     ap.add_argument("--abs_tol", type=float, default=0.01)
     ap.add_argument("--burn_in", type=int, default=500)
-    ap.add_argument("--max_steps", type=int, default=180000,
+    ap.add_argument("--max_steps", type=int, default=18000,
                     help="Safety cap, not a target -- F20 showed some lambdas "
                          "still drifting at 18750. Hitting this is a labeled "
                          "NOT-CONVERGED result, not a silent truncation.")

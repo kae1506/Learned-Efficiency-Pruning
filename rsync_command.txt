@@ -1,0 +1,1 @@
+rsync -avz --progress -e "ssh -p <PORT>" root@<POD_IP>:/workspace/results/opt125m_converge_sweep/ experiments/latest/opt125m_converge_sweep/

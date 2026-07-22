@@ -9,7 +9,8 @@ Not standalone -- imports the model/data/eval plumbing from
 train_pruner_opt125m.py (same directory), same pattern as
 train_pruner_pg19_sweep.py.
 
-CONVERGENCE CRITERION (see diary chat log for the derivation):
+CONVERGENCE CRITERION (see diary chat log for the derivation, and for the
+v1 bug this version fixes):
   Checkpoint every `check_every` (50) steps. At checkpoint step t, look at
   the trailing window of the last `window` (5) checkpoints (t, t-50, t-100,
   t-150, t-200 -- 200 steps of history). For EVERY layer independently
@@ -18,16 +19,34 @@ CONVERGENCE CRITERION (see diary chat log for the derivation):
   dilute exactly the signal we're trying to catch), require every reading
   in that window to be within tol of the most recent reading:
 
-      tol = max(rel_tol * |g_l(t)|, abs_tol)     # rel_tol=0.05, abs_tol=0.01
-      |g_l(t_i) - g_l(t)| <= tol   for all t_i in window, all layers l
+      tol = max(rel_tol * |mean_g_l(t)|, abs_tol)   # rel_tol=0.05, abs_tol=0.01
+      |mean_g_l(t_i) - mean_g_l(t)| <= tol   for all t_i in window, all layers l
 
-  g_l(t) = history["per_layer_keep"][l][t] -- the layer's mean gate value.
-  This is NOT minibatch-noise-driven: base weights are frozen, so gates =
-  pruner_phi(frozen_weights) is a pure function of the pruner's OWN current
-  parameters at that step, not of which batch got sampled. That's why no
-  additional smoothing/averaging is applied per checkpoint -- the raw
-  per-step value is already the right signal (unlike CE_pruned/pruner loss,
-  which ARE batch-dependent and visibly noisier in every plot.png).
+  mean_g_l(t) = the BLOCK MEAN of history["per_layer_keep"][l] over the
+  check_every raw steps ending at t (i.e. steps [t-check_every, t)), NOT
+  the single raw value at step t.
+
+  v1 of this script checked the raw per-step value directly, reasoning that
+  gates = pruner_phi(frozen_weights) don't depend on the current minibatch
+  so there was nothing to smooth. That reasoning has a hole: while gates
+  at a FIXED phi are indeed batch-independent, phi_t itself is a noisy
+  trajectory -- Adam gets a fresh stochastic-minibatch gradient every
+  step, forever, with no LR decay -- so the raw per-step readout inherits
+  a NON-DECAYING noise floor through phi's own update noise. A real run
+  (dense-9-lambda sweep, all of lambda in [0.1, 0.2, 0.25, 0.3, 0.4])
+  confirmed this empirically: every plot.png showed all 12 layers visibly
+  flat by ~2000-2500 steps, yet none satisfied the raw-signal check before
+  hitting the 18000-step cap. The plotted "flat" line is ALREADY the
+  100-step-smoothed version (plot_one_run's per-layer panel only ever
+  plots _smooth(per), never the raw series) -- the raw signal the v1
+  checker actually read was noisier than what the plot showed, and
+  requiring all 12 layers x 5 checkpoints (60 simultaneous comparisons)
+  to independently avoid that non-decaying noise was, in practice, close
+  to impossible to satisfy no matter how long training ran. Block-averaging
+  each checkpoint reading over the preceding check_every raw steps (same
+  idea as the plot's own smoothing, just applied to what's actually
+  checked) filters that noise floor out directly, rather than requiring a
+  lucky quiet patch across 60 conditions at once.
 
   abs_tol exists because rel_tol alone is unstable near g_l -> 0 (a heavily
   pruned layer jittering 0.02 -> 0.021 is a "5% violation" that means
@@ -51,6 +70,7 @@ CONVERGENCE CRITERION (see diary chat log for the derivation):
 import os
 import sys
 import time
+import csv
 import argparse
 
 import numpy as np
@@ -70,10 +90,19 @@ from train_pruner_opt125m import (
 # Convergence check
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _block_mean(layer_hist, cp, check_every):
+    """Mean of the check_every raw per-step readings ending at (1-indexed)
+    step cp -- i.e. steps [cp - check_every, cp). Filters the per-step Adam
+    noise the raw signal alone doesn't (see module docstring)."""
+    lo = max(0, cp - check_every)
+    return sum(layer_hist[lo:cp]) / (cp - lo)
+
+
 def check_converged(history, step, check_every, window, rel_tol, abs_tol, burn_in):
     """
-    Returns True iff every layer's last `window` checkpoint readings (spaced
-    check_every steps apart) all sit within tolerance of the most recent one.
+    Returns True iff every layer's last `window` checkpoint BLOCK MEANS
+    (each averaged over the check_every raw steps ending at that checkpoint)
+    all sit within tolerance of the most recent block mean.
     `step` is 1-indexed count of steps completed so far (len(history["loss"])).
     """
     if step < burn_in:
@@ -87,20 +116,92 @@ def check_converged(history, step, check_every, window, rel_tol, abs_tol, burn_i
     per_layer_keep = history["per_layer_keep"]  # list[N_LAYERS] of list[step]
 
     for layer_hist in per_layer_keep:
-        ref_val = layer_hist[step - 1]           # most recent (0-indexed)
+        block_means = [_block_mean(layer_hist, cp, check_every) for cp in checkpoint_steps]
+        ref_val = block_means[0]   # most recent checkpoint's block mean
         tol = max(rel_tol * abs(ref_val), abs_tol)
-        for cp in checkpoint_steps:
-            val = layer_hist[cp - 1]
+        for val in block_means:
             if abs(val - ref_val) > tol:
                 return False
     return True
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Train-vs-test CE gap diagnostic — periodic checkpoints DURING training,
+# not just a single post-hoc check. Tests the overtraining hypothesis: does
+# train_delta (CE improvement on train) keep growing past the point the
+# DISCRETE mask has locked, while test_delta plateaus or degrades -- which
+# would mean the gap between them is being driven by continued fitting of
+# train-specific structure after the mask itself stopped changing, not by
+# genuine redundancy discovery.
+#
+# Uses a REDUCED, fixed-size token slice (gap_eval_tokens, default 50k, vs.
+# the full ~287k-token test set) for BOTH train and test at each periodic
+# checkpoint -- these are for tracking the TREND across checkpoints inside
+# one run, not the final reported numbers (the end-of-run eval still uses
+# the full test set, unchanged). Deliberate cost/resolution tradeoff, not
+# a default to blindly trust for final ppl figures.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def sample_tokens(ids_flat, n_tokens):
+    """Deterministic front-slice, matching improvement_result_check's
+    matched-size-sample convention (apples-to-apples eval cost across splits)."""
+    n = min(n_tokens, ids_flat.size(0))
+    return ids_flat[:n]
+
+
+def gap_diagnostic_checkpoint(pruner, model, train_sample, test_sample, device, args):
+    """One periodic measurement: recompute gates fresh from the pruner's
+    CURRENT parameters, then CE on both a train sample and a test sample
+    at that exact mask. Returns a dict of the numbers worth logging."""
+    pruner.eval()
+    with torch.no_grad():
+        gates = pruner(get_mlp_weights(model))
+    per_layer_keep = [g.mean().item() for g in gates]
+    avg_gate = float(np.mean(per_layer_keep))
+
+    train_orig_ce   = evaluate(model, train_sample, device, gates=None,
+                               desc="gap: train orig",
+                               max_length=args.eval_max_length, stride=args.eval_stride)
+    train_pruned_ce = evaluate(model, train_sample, device, gates=gates,
+                               desc="gap: train pruned",
+                               max_length=args.eval_max_length, stride=args.eval_stride)
+    test_orig_ce    = evaluate(model, test_sample, device, gates=None,
+                               desc="gap: test orig",
+                               max_length=args.eval_max_length, stride=args.eval_stride)
+    test_pruned_ce  = evaluate(model, test_sample, device, gates=gates,
+                               desc="gap: test pruned",
+                               max_length=args.eval_max_length, stride=args.eval_stride)
+    pruner.train()
+
+    train_delta = train_orig_ce - train_pruned_ce   # positive = improvement
+    test_delta  = test_orig_ce - test_pruned_ce
+    return {
+        "avg_gate": avg_gate,
+        "pct_pruned": (1 - avg_gate) * 100,
+        "per_layer_keep": per_layer_keep,
+        "train_orig_ce": train_orig_ce, "train_pruned_ce": train_pruned_ce,
+        "train_delta": train_delta,
+        "test_orig_ce": test_orig_ce, "test_pruned_ce": test_pruned_ce,
+        "test_delta": test_delta,
+        "gap": train_delta - test_delta,   # >0 means train improving more than test -- the signature we're hunting
+    }
+
+
+GAP_CSV_COLUMNS = [
+    "lambda", "seed", "step",
+    "avg_gate", "pct_pruned", "delta_pct_pruned", "max_layer_delta_pct",
+    "would_be_converged",
+    "train_orig_ce", "train_pruned_ce", "train_delta",
+    "test_orig_ce", "test_pruned_ce", "test_delta",
+    "gap",
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Per-(λ, seed) training loop with convergence-based stopping
 # ─────────────────────────────────────────────────────────────────────────────
 
-def train_one_converge(lam, seed, model, train_loader, test_ids, args, device, run_dir):
+def train_one_converge(lam, seed, model, train_loader, train_ids, test_ids, args, device, run_dir):
     torch.manual_seed(seed); np.random.seed(seed)
 
     layer_shapes = [LAYER_SHAPE] * N_LAYERS
@@ -117,6 +218,19 @@ def train_one_converge(lam, seed, model, train_loader, test_ids, args, device, r
         "loss": [], "ce_orig": [], "ce_pruned": [], "avg_gate": [],
         "per_layer_keep": [[] for _ in range(N_LAYERS)],
     }
+
+    # Train-vs-test gap diagnostic: fixed reduced-size samples reused at every
+    # checkpoint (same slice each time -> only the pruner's gates change
+    # between checkpoints, isolating that as the one variable).
+    gap_train_sample = sample_tokens(train_ids, args.gap_eval_tokens)
+    gap_test_sample  = sample_tokens(test_ids, args.gap_eval_tokens)
+    gap_csv_path = os.path.join(run_dir, "gap_diagnostic.csv")
+    os.makedirs(run_dir, exist_ok=True)
+    gap_csv_file = open(gap_csv_path, "w", newline="")
+    gap_writer = csv.DictWriter(gap_csv_file, fieldnames=GAP_CSV_COLUMNS)
+    gap_writer.writeheader()
+    prev_pct_pruned = None
+    prev_per_layer_pct = None
 
     t0 = time.time()
     step = 0
@@ -150,14 +264,46 @@ def train_one_converge(lam, seed, model, train_loader, test_ids, args, device, r
                        f"CE orig {m['ce_orig']:.3f} pruned {m['ce_pruned']:.3f} | "
                        f"avg pruned {avg_pruned:5.1f}%")
 
+        would_converge = False
         if step % args.check_every == 0:
-            if check_converged(history, step, args.check_every, args.window,
-                               args.rel_tol, args.abs_tol, args.burn_in):
+            would_converge = check_converged(history, step, args.check_every, args.window,
+                                             args.rel_tol, args.abs_tol, args.burn_in)
+            if would_converge:
                 converged = True
-                tqdm.write(f"  [{tag}] CONVERGED at step {step} "
-                           f"(all {N_LAYERS} layers flat within tol over last "
-                           f"{args.window * args.check_every} steps)")
-                break
+
+        if step % args.gap_eval_every == 0:
+            g = gap_diagnostic_checkpoint(pruner, model, gap_train_sample, gap_test_sample,
+                                          device, args)
+            delta_pct_pruned = (g["pct_pruned"] - prev_pct_pruned) if prev_pct_pruned is not None else 0.0
+            if prev_per_layer_pct is not None:
+                cur_per_layer_pct = [(1 - k) * 100 for k in g["per_layer_keep"]]
+                max_layer_delta = max(abs(c - p) for c, p in zip(cur_per_layer_pct, prev_per_layer_pct))
+            else:
+                cur_per_layer_pct = [(1 - k) * 100 for k in g["per_layer_keep"]]
+                max_layer_delta = 0.0
+            gap_writer.writerow({
+                "lambda": lam, "seed": seed, "step": step,
+                "avg_gate": g["avg_gate"], "pct_pruned": g["pct_pruned"],
+                "delta_pct_pruned": delta_pct_pruned, "max_layer_delta_pct": max_layer_delta,
+                "would_be_converged": would_converge,
+                "train_orig_ce": g["train_orig_ce"], "train_pruned_ce": g["train_pruned_ce"],
+                "train_delta": g["train_delta"],
+                "test_orig_ce": g["test_orig_ce"], "test_pruned_ce": g["test_pruned_ce"],
+                "test_delta": g["test_delta"], "gap": g["gap"],
+            })
+            gap_csv_file.flush()
+            prev_pct_pruned = g["pct_pruned"]
+            prev_per_layer_pct = cur_per_layer_pct
+            tqdm.write(f"  [{tag}] gap-check step {step:>6} | pct_pruned {g['pct_pruned']:5.2f}% "
+                       f"(Δ{delta_pct_pruned:+.3f}pp, max-layer-Δ{max_layer_delta:+.3f}pp) | "
+                       f"train_delta {g['train_delta']:+.4f} test_delta {g['test_delta']:+.4f} "
+                       f"gap {g['gap']:+.4f} | conv={would_converge}")
+
+        if converged:
+            tqdm.write(f"  [{tag}] CONVERGED at step {step} "
+                       f"(all {N_LAYERS} layers flat within tol over last "
+                       f"{args.window * args.check_every} steps)")
+            break
 
     pbar.close()
     total_time = time.time() - t0
@@ -165,6 +311,28 @@ def train_one_converge(lam, seed, model, train_loader, test_ids, args, device, r
         print(f"  [{tag}] NOT CONVERGED — hit max_steps={args.max_steps} safety cap. "
               f"This is itself a result (genuinely slow/non-converging λ), not a failure.",
               flush=True)
+
+    # Final gap-diagnostic row, even if it doesn't land on a gap_eval_every
+    # boundary, so the CSV always has a data point matching the run's actual
+    # stopping step (whether by convergence or the max_steps cap).
+    if step % args.gap_eval_every != 0:
+        g = gap_diagnostic_checkpoint(pruner, model, gap_train_sample, gap_test_sample,
+                                      device, args)
+        delta_pct_pruned = (g["pct_pruned"] - prev_pct_pruned) if prev_pct_pruned is not None else 0.0
+        cur_per_layer_pct = [(1 - k) * 100 for k in g["per_layer_keep"]]
+        max_layer_delta = (max(abs(c - p) for c, p in zip(cur_per_layer_pct, prev_per_layer_pct))
+                           if prev_per_layer_pct is not None else 0.0)
+        gap_writer.writerow({
+            "lambda": lam, "seed": seed, "step": step,
+            "avg_gate": g["avg_gate"], "pct_pruned": g["pct_pruned"],
+            "delta_pct_pruned": delta_pct_pruned, "max_layer_delta_pct": max_layer_delta,
+            "would_be_converged": converged,
+            "train_orig_ce": g["train_orig_ce"], "train_pruned_ce": g["train_pruned_ce"],
+            "train_delta": g["train_delta"],
+            "test_orig_ce": g["test_orig_ce"], "test_pruned_ce": g["test_pruned_ce"],
+            "test_delta": g["test_delta"], "gap": g["gap"],
+        })
+    gap_csv_file.close()
 
     pruner.eval()
     with torch.no_grad():
@@ -253,6 +421,17 @@ def main():
                     help="Safety cap, not a target -- F20 showed some lambdas "
                          "still drifting at 18750. Hitting this is a labeled "
                          "NOT-CONVERGED result, not a silent truncation.")
+    ap.add_argument("--gap_eval_every", type=int, default=200,
+                    help="Train-vs-test CE gap diagnostic checkpoint interval. "
+                         "Must be a multiple of --check_every for the logged "
+                         "would_be_converged flag to align with an actual "
+                         "convergence check at that step.")
+    ap.add_argument("--gap_eval_tokens", type=int, default=50_000,
+                    help="Fixed reduced token count for BOTH train and test "
+                         "samples at each gap-diagnostic checkpoint (vs. the "
+                         "full ~287k-token test set used for the final "
+                         "end-of-run eval) -- keeps per-checkpoint eval cost "
+                         "roughly constant. Trend data, not final numbers.")
     ap.add_argument("--batch_size", type=int, default=8)
     ap.add_argument("--seq_len", type=int, default=512)
     ap.add_argument("--embed_dim", type=int, default=64)
@@ -293,9 +472,29 @@ def main():
             run_dir = (os.path.join(args.out_dir, f"lambda_{lam}", f"seed_{seed}")
                        if len(args.seeds) > 1
                        else os.path.join(args.out_dir, f"lambda_{lam}"))
-            res = train_one_converge(lam, seed, model, train_loader, test_ids,
+            res = train_one_converge(lam, seed, model, train_loader, train_ids, test_ids,
                                      args, device, run_dir)
             all_results.append(res)
+
+    # Concatenate every run's gap_diagnostic.csv into one sweep-level file --
+    # this is the actual artifact for answering "where does test_delta fall
+    # behind train_delta relative to lambda / steps / mask convergence."
+    combined_path = os.path.join(args.out_dir, "gap_diagnostic_all.csv")
+    with open(combined_path, "w", newline="") as out_f:
+        writer = csv.DictWriter(out_f, fieldnames=GAP_CSV_COLUMNS)
+        writer.writeheader()
+        for lam in args.lambdas:
+            for seed in args.seeds:
+                run_dir = (os.path.join(args.out_dir, f"lambda_{lam}", f"seed_{seed}")
+                           if len(args.seeds) > 1
+                           else os.path.join(args.out_dir, f"lambda_{lam}"))
+                run_csv = os.path.join(run_dir, "gap_diagnostic.csv")
+                if not os.path.exists(run_csv):
+                    continue
+                with open(run_csv, newline="") as in_f:
+                    for row in csv.DictReader(in_f):
+                        writer.writerow(row)
+    print(f"Combined gap diagnostic -> {combined_path}")
 
     # Aggregate: the actual point of this sweep is the (lambda, steps_taken) curve.
     header = f"OPT-125M convergence-based sweep | seeds={args.seeds} | device={device}"

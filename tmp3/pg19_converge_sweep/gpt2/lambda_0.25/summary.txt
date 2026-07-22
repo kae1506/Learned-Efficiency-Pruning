@@ -1,0 +1,15 @@
+GPT-2 small MLP pruner (pg19) — λ=0.25, seed=0 — CONVERGENCE-BASED STOPPING
+layers : 12 MLP blocks, 3072 intermediate neurons each
+steps taken       : 600
+converged         : True (max_steps cap = 18000)
+convergence check : window=5 x check_every=50 (250 steps flat, block-mean) | rel_tol=0.05 abs_tol=0.01 | burn_in=500
+time              : 37.8s
+------------------------------------------------------------
+final avg keep gate          : 0.8750
+final % MLP neurons pruned   : 12.50%
+per-block neurons kept       : [2875, 2297, 2716, 2715, 2791, 2791, 2833, 2686, 2683, 2606, 2666, 2544]
+------------------------------------------------------------
+pg19 test set:
+  original  ppl              : 50.683
+  pruned    ppl              : 39.913
+  ppl increase               : -10.769

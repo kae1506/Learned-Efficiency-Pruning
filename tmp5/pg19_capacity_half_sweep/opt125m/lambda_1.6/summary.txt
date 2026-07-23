@@ -1,0 +1,15 @@
+OPT-125M MLP pruner (pg19) — λ=1.6, seed=0 — CONVERGENCE-BASED STOPPING
+layers : 12 MLP blocks, 3072 intermediate neurons each
+steps taken       : 1650
+converged         : True (max_steps cap = 18000)
+convergence check : window=5 x check_every=50 (250 steps flat, block-mean) | rel_tol=0.05 abs_tol=0.01 | burn_in=500
+time              : 62.5s
+------------------------------------------------------------
+final avg keep gate          : 0.2871
+final % MLP neurons pruned   : 71.29%
+per-block neurons kept       : [1735, 921, 667, 475, 629, 742, 796, 863, 943, 920, 880, 961]
+------------------------------------------------------------
+pg19 test set:
+  original  ppl              : 31.528
+  pruned    ppl              : 58.165
+  ppl increase               : +26.637

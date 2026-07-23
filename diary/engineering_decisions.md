@@ -125,6 +125,16 @@ Structured OBC (structured sibling of SparseGPT; whole-neuron OBS, exact greedy)
 - **`param_count = Σ consecutive(in×out)`** = MLP inference MACs → weight% == compute%.
 - **n_calib_batches=5** for activation stats.
 
+## Layer-budget vs. within-layer-selection decomposition ablation (`layer_budget_activation_ablation.py`, run 2026-07-23)
+
+Follow-up to F3/F4 (pruner capacity doesn't meaningfully affect outcome — is that suspicious?) and F22 (trained pruner beats an activation-magnitude baseline by 6.3x at matched sparsity).
+
+- **What it tests — why:** the architecture makes the pruner's two jobs cleanly separable — `context_bias` (BiLSTM) is one scalar per layer, added identically to every neuron in it, so it can only set a layer's overall budget, never discriminate within it. 100% of within-layer neuron choice is therefore the row-encoder's job. If capacity-insensitivity (F4) is because the real "smartness" lives almost entirely in the low-dimensional (12-number) budget decision rather than in sophisticated within-layer selection, then swapping in a dumb within-layer heuristic — while keeping the trained pruner's OWN discovered per-layer budget exactly — should reproduce close to its real ppl. If within-layer selection is real necessary work, ppl should degrade toward F22's baseline numbers instead.
+- **Activation magnitude, not weight magnitude — why:** stays consistent with the already-validated F22 baseline criterion (mean post-ReLU activation, same hook point apply_gates() uses) rather than introducing a third, untested criterion.
+- **Budget read straight from the checkpoint (`per_layer_kept`), pruner itself never reloaded — why:** the only thing needed from the trained run is the BiLSTM's discovered per-layer count; no need to reinstantiate/forward the row-encoder at all for this test.
+- **Checkpoints: `tmp3/pg19_converge_sweep/{gpt2,opt125m}/lambda_0.3/pruner.pt` — why:** base-size pruner (not the capacity-ablation runs), mid-range λ=0.3 — real non-trivial sparsity in both models, avoids both the near-zero-cost low-λ region and F3/F4's still-uncertain high-λ region.
+- **Result:** see crisp-findings.md for the numbers once logged.
+
 ## Methodology / infra
 - **Seeds: ≥3 for RL** (σ≈4pp, single-seed meaningless), **2 for BiLSTM** (near-deterministic, ratio σ=0.007).
 - **Threshold-sweep vs retrain-per-sw**: re-thresholding one pruner's ranking is ~1–2pp PESSIMISTIC away from its training sw → retrain for rigor.

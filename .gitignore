@@ -1,7 +1,7 @@
 venv/
 data/
 experiments/checkpoints/*.pt
-experiments/latest/gpt2_results/**/pruner.pt
+experiments/latest/**/pruner.pt
 .claude/
 __pycache__/
 *.pyc

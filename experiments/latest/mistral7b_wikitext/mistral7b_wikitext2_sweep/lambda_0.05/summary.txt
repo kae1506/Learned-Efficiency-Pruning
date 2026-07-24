@@ -1,0 +1,15 @@
+Mistral-7B MLP pruner — dataset=wikitext2 λ=0.05, seed=0 — CONVERGENCE-BASED + LR-DECAY
+layers : 32 MLP blocks, 14336 intermediate neurons each
+steps taken       : 750
+converged         : True (max_steps cap = 18000)
+convergence check : window=5 x check_every=50 (block-mean) | rel_tol=0.05 abs_tol=0.01 | burn_in=500
+LR decay          : window=250 | 1.00e-03 -> 1.00e-04 | final state=decaying
+time              : 415.2s
+------------------------------------------------------------
+final avg keep gate          : 0.9448
+final % FFN neurons pruned   : 5.52%
+------------------------------------------------------------
+wikitext2 test set:
+  original  ppl              : 4.740
+  pruned    ppl              : 4.908
+  ppl increase               : +0.167

@@ -59,7 +59,7 @@ from train_pruner_llama2_7b_wikitext2 import (
 os.environ.setdefault("HF_HOME", "/root/.cache/huggingface")
 
 DEFAULT_TASKS = ["piqa", "hellaswag", "winogrande", "arc_easy", "arc_challenge", "boolq", "openbookqa"]
-DEFAULT_SWEEP_DIR = "/experiments/latest/llama2_7b_wikitext2_sweep"
+DEFAULT_SWEEP_DIR = "/workspace/Learned-Efficiency-Pruning/experiments/latest/llama2_7b_wikitext2_sweep"
 DEFAULT_LAMBDAS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0]  # excludes 1.4 -- never converged, see F6
 
 

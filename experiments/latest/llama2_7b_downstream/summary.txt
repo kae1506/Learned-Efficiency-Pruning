@@ -1,0 +1,5 @@
+Llama-2-7B zero-shot downstream accuracy, WikiText-2-pruned checkpoints
+----------------------------------------------------------------------------------------------------
+         run |  %pruned |       piqa |  hellaswag | winogrande |   arc_easy | arc_challe |      boolq | openbookqa |    avg
+----------------------------------------------------------------------------------------------------
+       dense |       -- |      78.40 |      76.20 |      69.22 |      73.86 |      44.62 |      79.36 |      44.00 |  66.52

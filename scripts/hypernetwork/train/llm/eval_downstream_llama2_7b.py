@@ -59,7 +59,7 @@ from train_pruner_llama2_7b_wikitext2 import (
 os.environ.setdefault("HF_HOME", "/root/.cache/huggingface")
 
 DEFAULT_TASKS = ["piqa", "hellaswag", "winogrande", "arc_easy", "arc_challenge", "boolq", "openbookqa"]
-DEFAULT_SWEEP_DIR = "/workspace/results/llama2_7b_wikitext2_sweep"
+DEFAULT_SWEEP_DIR = "/experiments/latest/llama2_7b_wikitext2_sweep"
 DEFAULT_LAMBDAS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0]  # excludes 1.4 -- never converged, see F6
 
 
@@ -167,6 +167,11 @@ def main():
                          "you already have it from a previous run of this script.")
     ap.add_argument("--device", type=str, default="cuda")
     ap.add_argument("--out_dir", type=str, default="/workspace/results/llama2_7b_downstream")
+    ap.add_argument("--pod_id", type=str, default=None,
+                    help="RunPod pod ID, passed through by run_downstream_eval_pod.py so the "
+                         "manual-kill reminder shows up in THIS script's own (now live-streamed) "
+                         "output, not just once in the orchestration script's -- that output "
+                         "scrolls out of view over a 1-2h run.")
     ap.add_argument("--sanity_check", action="store_true",
                     help="Run one task, limit=5 examples, dense model only, then exit. "
                          "Validates the full pipeline (model load, HFLM accepting a "
@@ -186,6 +191,11 @@ def main():
     if os.environ.get("HF_TOKEN") is None:
         print("WARNING: HF_TOKEN not set -- meta-llama/Llama-2-7b-hf is gate-licensed, "
               "see train_pruner_llama2_7b_wikitext2.py's docstring.", flush=True)
+
+    kill_cmd = (f"python3 -c \"import runpod; runpod.api_key='<key>'; "
+               f"runpod.terminate_pod('{args.pod_id}')\"" if args.pod_id else None)
+    if kill_cmd:
+        print(f"Manual kill command (pod {args.pod_id}, save this): {kill_cmd}", flush=True)
 
     print("Loading Llama-2-7B ...", flush=True)
     model = load_llama2_7b(device)
@@ -242,6 +252,8 @@ def main():
             print(f"  [skip] lambda={lam}: no checkpoint at {ckpt_path}", flush=True)
             continue
         print(f"\n{'='*70}\nlambda={lam} -- {ckpt_path}\n{'='*70}", flush=True)
+        if kill_cmd:
+            print(f"(manual kill if needed: {kill_cmd})", flush=True)
         try:
             gates, ckpt = load_pruner_and_gates(model, ckpt_path, device)
             pct_pruned = 100 * (1 - sum(g.mean().item() for g in gates) / len(gates))

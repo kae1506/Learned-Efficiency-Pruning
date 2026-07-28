@@ -118,27 +118,45 @@ At OPT-125M's λ=0.75 operating point (42.56% pruned), the trained pruner's perp
 
 Worth one sentence noting the *shape* of the difference: the baseline's failure mode is concentrating almost all its cuts in a few middle layers (down to ~13% kept in its worst layer) while the trained pruner stays much flatter across depth — plausibly the actual mechanism behind the gap, not just "better per-neuron scores." This directly supports the §4.4 cross-layer-context design argument with LLM-scale evidence, not just toy-scale motivation.
 
-## 7. Scaling laws — [PLANNED, none of this is run yet]
+## 7. 7B-scale validation (DONE, partial — Mistral-7B + Llama-2-7B, promoted out of "planned")
+
+Real results now exist at 7B scale, not just the roadmap below. Three convergence-based sweeps ran (`train_pruner_mistral7b.py` on C4, `train_pruner_mistral7b_wikitext2.py` on WikiText-2, `train_pruner_llama2_7b_wikitext2.py` on WikiText-2), all reusing the identical Pruner architecture/hyperparameters (`embed_dim=64, lstm_hidden=128`) and training regime (block-mean convergence check + B9 plateau-triggered LR decay) as the GPT-2/OPT-125M sweeps — same "no per-model tuning beyond the weight-extraction plumbing" claim §4.2 already makes, now tested at 56x the parameter count.
+
+**Headline: Llama-2-7B/WikiText-2 vs. DISP-LLM's own published numbers, matched model, matched dataset, matched no-weight-update setup.** DISP-LLM's Table 1 (LLaMA-2-7B, no weight update, dense=5.12 ppl) gives 20%→6.10, 30%→6.85, 40%→8.11, 50%→9.84 (total-param pruning ratio). Our 9-λ sweep (dense=4.903 ppl), converted to the same total-param basis via Llama-2-7B's 64.24% MLP parameter share, **beats the interpolated DISP-LLM curve at all 8 converged points** (5.4% to 28.8% total pruned) — by −0.45 ppl at the low end, narrowing to a near-tie (+0.016 ppl) right around 28.8%. This is the most direct, confound-free comparison in the paper: same base model, same eval dataset, same "frozen weights, no retraining" framing DISP-LLM itself uses for its own headline row. Full table in F6/`past-work.md`.
+
+One point (λ=1.4, 32.6% total pruned) loses to DISP-LLM by +0.49 ppl, but never converged (18,000-step safety cap hit, `check_converged` never fired once) — excluded from the headline claim, diagnosed as a genuine training-dynamics failure (§7.1 below), not reported as a real comparison point.
+
+**Mistral-7B** (Apache-licensed, used as the non-gated stand-in before Llama-2-7B access was arranged): C4 sweep shows the same free-region-then-monotonic-cost shape as every smaller model, plus a λ=0.3→0.4 non-monotonicity (more pruning, less cost) attributable to λ=0.4 simply getting far more optimization steps before its convergence trigger fired (4200 vs. 1150) — the same "window-validity depends on how much of the trajectory has actually completed" mechanism as F3, here appearing along the λ axis instead of the capacity axis. WikiText-2 sweep on Mistral-7B shows a much smaller absolute cost curve than C4's (dense ppl 4.740 vs. 8.325) — consistent with Mistral already being well-calibrated to clean Wikipedia text, less genuine redundancy to find there specifically, exactly the concern flagged before running it.
+
+### 7.1 Open failure mode: λ=1.4 (Llama-2-7B) never converges, and pruner capacity is NOT the fix
+
+Worth a paragraph in Discussion/Limitations, not just a footnote — it's a genuine, mechanistically-diagnosed failure, not a "ran out of budget" note. At λ=1.4, `pct_pruned` in the last 20 checkpoints (steps 14200-18000 of an 18,000-step run) still swings an 8.2-point band with barely reduced noise versus the *first* 20 checkpoints, and individual layers (`max_layer_delta_pct`) are still moving by ~30 points between 200-step checkpoints at the very end — a sustained oscillating equilibrium, not a slow monotonic approach to a plateau. Likely mechanism: at this λ the sparsity term and the CE-cost term are comparable in magnitude, and the learning rate is held at a constant `1e-3` regardless of λ (the B9 decay mechanism never gets to intervene, since it requires a raw convergence trigger to fire first, and none ever does here) — plausibly enough to sustain oscillation around a ridge rather than settle to a fixed point.
+
+Directly tested "increase pruner capacity" as the fix against this project's own prior evidence (F3/F4: an 8-point matched grid at half/base/2.26x capacity, GPT-2+OPT-125M/pg19) and it doesn't hold — no monotonic capacity effect was found there on %pruned, ppl, or convergence speed. Capacity controls the row-encoder/BiLSTM's representational expressiveness; it has no obvious mechanistic connection to the STE gate's threshold-oscillation dynamics under a fixed-LR gradient signal. The indicated fix is LR/λ-coupling (scale the initial LR down for high-sparsity operating points) — an optimization-dynamics diagnosis, not a capacity one. Not yet tested at 7B scale; F3/F4's evidence is a reasonable prior from a much smaller model family, not a proven transfer.
+
+## 8. Scaling laws — [PLANNED, remainder still not run]
 
 Frame as future work / a second paper section contingent on compute, not claimed results:
 
-- **H1 — pruner-capacity scaling**: does the minimum pruner size needed to find a good mask scale with base-model size (row-encoder cost ~ `max(d_in)·embed_dim`, BiLSTM cost ~ `#layers·lstm_hidden²`)? Not tested — every experiment so far (MLP → CIFAR conv → GPT-2 → OPT-125M) reused the same fixed pruner config regardless of base size.
+- **H1 — pruner-capacity scaling**: does the minimum pruner size needed to find a good mask scale with base-model size (row-encoder cost ~ `max(d_in)·embed_dim`, BiLSTM cost ~ `#layers·lstm_hidden²`)? Partially informed now by §7.1's negative capacity result at 7B — worth folding into H1's writeup as evidence, not just the GPT-2/OPT-125M-scale F3/F4 result. Every experiment so far still reused the same fixed pruner config regardless of base size — no genuine capacity *sweep* has been run at 7B.
 - **H2/H3 — λ\* prediction**: can the Pareto-optimal λ be predicted from cheap properties of the base model/task (baseline CE scale, layer count) instead of swept? Toy-scale data (F15) already refutes any simple monotonic λ\*-vs-size relationship; a more structured hypothesis (λ\* ≈ k·(CE_orig/mean_layer_size)^α, or the "sequential vs. simultaneous commitment" dynamical-regime view, H3) is proposed but unproven.
 - **Step-budget scaling**: F20 found the (inherited, never re-derived) fixed step count is badly and non-uniformly mismatched to actual convergence across λ and models — any scaling-law claim needs a convergence-based stopping rule first (B7), or the "how does X scale" question is confounded by "did training actually finish."
 - **H4 — architecture universality**: the MLP→CIFAR→GPT-2→OPT-125M portability already demonstrated is evidence for this, but it's anecdotal (4 architectures, not a controlled sweep) — a real test would hold task/data fixed and sweep architecture family deliberately.
 
 This section should be written as a roadmap with a clear "not yet run" label on everything, not blended with §6's completed results.
 
-## 8. Discussion / Limitations
+## 9. Discussion / Limitations
 
 - **Explicit scope reminder**: this paper reports a compression method for frozen models — a controlled accuracy-for-sparsity trade, characterized via Pareto curves and an efficiency metric — not a fine-tuning technique and not a claim that pruning ever improves the base model. State this plainly, early in the discussion, not just in scope-setting.
 - **The F19 thread as a cautionary tale, not a result**: early OPT-125M experiments appeared to show pruning *improving* in-domain perplexity. Worth one paragraph explaining what that turned out to be (substantially a tokenization bug, F21) and why, even setting the bug aside, an unfloored `(CE_pruned − CE_orig)` loss term will always be *capable* of producing this kind of result on a data distribution correlated between train/test (WikiText-2's own train/test split) — and why it doesn't generalize (the original out-of-domain C4 check showed real, monotonic degradation at every λ). This is useful precisely *because* it explains why the paper's scope constraint (§0.5) is the right one, not a limitation to apologize for.
 - **Transfer does not work**: a pruner trained on one network does not transfer to a different (even architecturally identical) independently-trained network (F7) — each deployment needs its own ~20-25 min training run. Explain the mechanism from §4.3/§4.4's discussion: the architecture is already exactly permutation-invariant within a layer, so the failure isn't a missing invariance — it's that raw weight *values* aren't comparable across independently-trained networks' weight-space geometry. Note activation/gradient-based inputs (not yet tested) as the natural fix, without claiming it works.
-- **Compute cost honesty**: ~20-25 min GPU per (λ, seed) operating point vs. one-shot calibration methods (SparseGPT/Wanda, minutes total) — the paper should state this tradeoff plainly rather than let the Pareto curve imply this is free.
+- **Compute cost honesty**: ~20-25 min GPU per (λ, seed) operating point at GPT-2/OPT-125M scale, growing to hours at 7B scale, vs. one-shot calibration methods (SparseGPT/Wanda, minutes total) — the paper should state this tradeoff plainly rather than let the Pareto curve imply this is free.
+- **The λ=1.4/Llama-2-7B non-convergence (§7.1, F6)**: one operating point in the 7B validation genuinely fails to converge, and the diagnosis (LR/λ-scale mismatch, not capacity) is a real open methods gap — the fixed, un-scaled learning rate used identically across every λ in every sweep so far is itself a load-bearing, never-revisited default. Worth stating plainly as unresolved rather than omitting the point or quietly excluding it without explanation.
+- **Single seed at 7B scale**: every 7B-scale sweep (Mistral-7B ×2 datasets, Llama-2-7B) is single-seed, unlike the 2-seed protocol used for GPT-2/OPT-125M — a compute-driven necessity, not a validated claim that seed variance is small at this scale. State this explicitly wherever 7B numbers are reported.
 
-## 9. Conclusion (skeleton)
+## 10. Conclusion (skeleton)
 
-Restate: learned, weight-conditioned, depth-context-aware pruning of frozen models produces a clean, controllable sparsity/accuracy Pareto frontier that beats a standard activation-magnitude baseline by a wide margin at matched sparsity, ported without architecture-specific changes across two different transformer implementations. No claim of improved capability — the value proposition is a better compression method, characterized rigorously (protocol bugs found and fixed in public, transfer failure mode explained mechanistically, baseline comparison run fairly).
+Restate: learned, weight-conditioned, depth-context-aware pruning of frozen models produces a clean, controllable sparsity/accuracy Pareto frontier that beats a standard activation-magnitude baseline by a wide margin at matched sparsity, ported without architecture-specific changes across GPT-2, OPT-125M, Mistral-7B, and Llama-2-7B — and, on the one directly matched comparison available in the literature (Llama-2-7B/WikiText-2 vs. DISP-LLM), beats a recent trained-hypernetwork baseline at every converged operating point. No claim of improved capability — the value proposition is a better compression method, characterized rigorously (protocol bugs found and fixed in public, transfer failure mode explained mechanistically, baseline comparison run fairly, failure modes at scale diagnosed rather than hidden).
 
 ---
 
@@ -147,7 +165,7 @@ Restate: learned, weight-conditioned, depth-context-aware pruning of frozen mode
 1. **§4.5**: floor the training loss at zero (`max(CE_pruned − CE_orig, 0)`) to match the "no improvement claim" framing structurally, or keep the current unfloored loss and handle the framing purely in how results are described? This affects whether existing checkpoints/sweeps (F16–F22) are reusable for the paper or need re-running.
 2. **§6.3**: does the paper wait for B8's full OPT-125M reconciliation, or ship with the partial 4-λ result clearly caveated? B8 isn't run yet.
 3. **§5**: is a qualitative toy-scale section even worth a full section, or should F1–F4/F11's LTH connection be compressed to a paragraph in the Introduction/Related Work instead, saving the section budget for §6/§7?
-4. Target venue/length (workshop paper vs. full paper) — affects how much §7 (currently 100% unrun) can realistically be more than a "future work" paragraph.
+4. Target venue/length (workshop paper vs. full paper) — affects how much §8 (scaling laws, still 100% unrun) can realistically be more than a "future work" paragraph.
 
 ---
 
@@ -184,5 +202,28 @@ Restate: learned, weight-conditioned, depth-context-aware pruning of frozen mode
 
 ### Decisions needed (yours, not research)
 - [ ] §5 scope — full section vs. paragraph-in-intro
-- [ ] Target venue/length — governs how much of §7 is real vs. future work
+- [ ] Target venue/length — governs how much of §8 is real vs. future work
 - [ ] §6.3 — ship with caveated partial OPT-125M result, or hold for B8
+- [x] §7 — 7B-scale validation promoted from "planned" to real content (2026-07-25): Mistral-7B (C4 + WikiText-2) and Llama-2-7B (WikiText-2) sweeps done, Llama-2-7B vs. DISP-LLM headline comparison in, λ=1.4 failure diagnosed (F6)
+
+---
+
+## Venue gap analysis (2026-07-25) — what's blocking A+, prioritized
+
+Full reasoning behind this list, and the tier verdict, lives in the 2026-07-25 chat log. Verdict: **not A+ (NeurIPS/ICML/ICLR main track) as it stands.** Realistic right now with light polish: a strong workshop paper at a top venue (efficiency/sparsity workshop). Realistic with items 1-3 closed: a second-tier real venue (EMNLP/NAACL Findings, COLM, mid-tier ML conference). Items 1-5 below are the ones that would draw an immediate reject/major-revision at a top main track; 6-10 are "why didn't you do this" gaps, real but secondary.
+
+### Blocking, in priority order
+
+1. [ ] **No downstream task evaluation.** Every comparable paper (DISP-LLM, SlimLLM, LLM-Pruner, FLAP, GISP) reports zero-shot accuracy (PIQA/HellaSwag/WinoGrande/ARC-e/ARC-c/BoolQ/OBQA) alongside perplexity — this paper has zero. Highest-value single addition; needed at minimum for the 7B models (§6).
+2. [ ] **No measured wall-clock/memory speedup.** The paper's own stated value proposition ("structured sparsity is what actually saves wall-clock/memory on commodity hardware") is asserted, never measured. Need actual latency/memory numbers, before vs. after pruning, on real hardware, at least at one operating point per model.
+3. [ ] **DISP-LLM comparison (§6.3/Table 4) has an unaddressed eval-protocol confound.** We compare our sliding-window ppl against DISP-LLM's own eval script's numbers via linear interpolation, not a re-run under identical conditions — and this project already found a real ~4% gap between sliding-window and non-overlapping-chunk eval protocols earlier this session (the SlimLLM/LLM-Pruner-vs-SparseGPT/DISP-LLM investigation). Either (a) re-eval our dense/pruned Llama-2-7B checkpoints under non-overlapping-chunk eval (`stride = max_length`, no overlap) and report both numbers, or (b) explicitly quantify and state the confound's likely magnitude in §6.3/§7. Currently the paper's text doesn't mention this at all for the headline comparison — a reviewer who knows DISP-LLM's codebase will find it before we disclose it, which is worse than disclosing it ourselves.
+4. [ ] **λ=1.4 is diagnosed, not fixed.** Try the LR/λ-coupling fix §6.4 proposes (lower or λ-scaled initial LR for high-λ operating points) and see if it actually converges. If it does, replace the broken point with a real one — a working fix is much stronger than an honest diagnosis of a still-broken headline-scale failure. If it doesn't, that's itself an important negative result worth reporting explicitly rather than leaving the mechanism as a guess.
+5. [ ] **Single seed almost everywhere that matters** (all of §6/7B-scale, OPT-125M's headline sweep) — violates this project's own house rule (F8: "single-seed numbers are noise at this kind of task"). At minimum, 2-seed re-runs of the Llama-2-7B operating points nearest the DISP-LLM crossover (λ=0.8, 1.0) would let the headline claim survive a "is this just seed luck" question, which is exactly the kind of question a top reviewer asks first.
+
+### Secondary, real but not blocking
+
+6. [ ] Baseline comparison is thin — one self-implemented baseline (activation-magnitude) + one literature comparison (DISP-LLM). Add a SparseGPT or Wanda re-run at matched sparsity on the same model(s), not just a citation.
+7. [ ] No LLM-scale ablation isolating the BiLSTM cross-layer context's actual contribution (only argued qualitatively via §5.4's "flatter across depth" note, and only directly demonstrated at toy scale, which the paper's own scope rules out as quantitative evidence). A row-encoder-only-vs-full-pruner ablation at one OPT-125M λ would close this cheaply.
+8. [ ] §6.3 (OPT-125M) still mid-reconciliation by this project's own stated bar (B8 not run — see "Experiments to complete" above).
+9. [ ] Loss-floor question (§3.5/§4.5) still open, sitting inside a paper whose framing argument depends on it.
+10. [ ] No code release / anonymized repo link — close to mandatory for NeurIPS/ICML/ICLR now.

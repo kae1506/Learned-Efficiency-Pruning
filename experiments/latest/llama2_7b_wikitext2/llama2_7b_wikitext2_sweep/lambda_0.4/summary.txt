@@ -1,0 +1,15 @@
+Llama-2-7B MLP pruner — WikiText-2 — λ=0.4, seed=0 — CONVERGENCE-BASED + LR-DECAY
+layers : 32 MLP blocks, 11008 intermediate neurons each
+steps taken       : 1650
+converged         : True (max_steps cap = 8000)
+convergence check : window=5 x check_every=50 (block-mean) | rel_tol=0.05 abs_tol=0.01 | burn_in=500
+LR decay          : window=250 | 1.00e-03 -> 1.00e-04 | final state=post_decay
+time              : 908.1s
+------------------------------------------------------------
+final avg keep gate          : 0.7658
+final % FFN neurons pruned   : 23.42%
+------------------------------------------------------------
+wikitext2 test set:
+  original  ppl              : 4.903
+  pruned    ppl              : 5.591
+  ppl increase               : +0.688

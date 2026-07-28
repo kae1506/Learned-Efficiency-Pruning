@@ -1,0 +1,31 @@
+# pip install -r requirements_llama2_downstream_runpod.txt
+#
+# For eval_downstream_llama2_7b.py on a RunPod pod (runpod/pytorch:* templates).
+# Deliberately does NOT list torch: the template already ships a CUDA-matched
+# build, see requirements_gpt2_runpod.txt's comment for why installing a
+# plain PyPI torch here would be actively harmful.
+#
+# transformers/datasets/matplotlib pinned to the versions already verified
+# working in this project (requirements_gpt2_runpod.txt). lm-eval is NOT
+# pinned -- untested in this project as of 2026-07-25, no verified-good
+# version yet.
+#
+# matplotlib/numpy/tqdm are NOT used by eval_downstream_llama2_7b.py itself
+# -- they're transitive imports. eval_downstream_llama2_7b.py imports
+# Pruner/load_llama2_7b/get_mlp_weights/apply_gates from
+# train_pruner_llama2_7b_wikitext2.py, and that module's top-level imports
+# (numpy, tqdm, matplotlib -- see its own import block) all execute on
+# import regardless of what's actually used from the module. Checked this
+# module's full import list explicitly after getting bit by matplotlib
+# alone; numpy/tqdm were the same gap, added preemptively rather than
+# one ModuleNotFoundError at a time.
+
+transformers==5.12.1
+datasets==5.0.0
+numpy==2.4.2
+tqdm==4.68.3
+matplotlib==3.10.8
+sentencepiece==0.2.0
+protobuf==5.29.3
+accelerate==1.2.1
+lm-eval

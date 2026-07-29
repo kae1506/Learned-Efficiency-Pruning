@@ -29,6 +29,17 @@ COST SAFETY, read before running for real:
     run fails or times out (--eval_timeout, default 3h -- see the compute
     estimate in the conversation this was built from: ~1-2h expected, 3h
     leaves real margin without risking an unbounded runaway pod).
+  - The full eval runs detached inside a remote tmux session (start_tmux_job
+    / stream_tmux_job below), not attached to the controlling SSH connection.
+    This is a fix, not a nicety: a run on 2026-07-28 died mid-sweep (lambda
+    0.1 of 8) when the local machine's SSH connection to the pod dropped
+    (exit 255 -- almost certainly a laptop sleep/network blip), which killed
+    the attached remote process outright and triggered the `finally` block
+    to terminate the pod before results were downloaded, losing everything
+    that hadn't already been rsynced down. With tmux, a dropped local
+    connection only interrupts *polling* (stream_tmux_job retries on its own
+    schedule) -- the remote job keeps running in the pod regardless, and a
+    poll failure does not touch the `finally` block's pod-termination logic.
   - If this script itself is killed (Ctrl-C twice, SIGKILL, terminal
     closed) before the `finally` block runs, the pod is NOT automatically
     terminated. The pod ID and a manual termination command are printed
@@ -71,6 +82,10 @@ REMOTE_SCRIPT_DIR = f"{REMOTE_WORKSPACE}/scripts"
 REMOTE_SWEEP_DIR = f"{REMOTE_WORKSPACE}/results/llama2_7b_wikitext2_sweep"
 REMOTE_OUT_DIR = f"{REMOTE_WORKSPACE}/results/llama2_7b_downstream"
 REMOTE_REQUIREMENTS = f"{REMOTE_WORKSPACE}/requirements.txt"
+REMOTE_EVAL_SCRIPT = f"{REMOTE_WORKSPACE}/run_eval.sh"
+REMOTE_EVAL_LOG = f"{REMOTE_WORKSPACE}/eval_live.log"
+REMOTE_EVAL_EXIT = f"{REMOTE_WORKSPACE}/eval_exit_code"
+TMUX_SESSION = "eval_run"
 
 DEFAULT_IMAGE = "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"
 ESTIMATED_USD_PER_HR = 3.5    # ballpark for H100 SXM secure-cloud on-demand as of when this was written -- CHECK against current RunPod pricing before trusting this number for a cost decision
@@ -103,9 +118,14 @@ def create_pod(args, gpu_type_id):
         gpu_type_id=gpu_type_id,
         gpu_count=1,
         cloud_type="SECURE",
-        container_disk_in_gb=20,
-        volume_in_gb=args.volume_gb,
-        volume_mount_path=REMOTE_WORKSPACE,
+        # No volume_in_gb/volume_mount_path: that requested a RunPod network
+        # volume at /workspace, which is what rejected rsync's chown ("Operation
+        # not permitted") on every file -- network volumes on RunPod enforce
+        # UID mapping that blocks arbitrary chown even for root@pod. This run
+        # doesn't need persistence across pod restarts (one pod per run, torn
+        # down at the end), so container_disk_in_gb alone -- ordinary local
+        # disk backing /workspace, no chown restriction -- is the right fit.
+        container_disk_in_gb=args.container_disk_gb,
         ports="22/tcp",
         env=env,
     )
@@ -153,7 +173,15 @@ def ssh_base_args(ip, port, ssh_key):
 
 def rsync_up(local_path, remote_path, ip, port, ssh_key):
     ssh_cmd = "ssh " + " ".join(ssh_base_args(ip, port, ssh_key))
-    cmd = ["rsync", "-avz", "--progress", "-e", ssh_cmd, local_path, f"root@{ip}:{remote_path}"]
+    # --no-owner --no-group: RunPod's /workspace is a network volume that
+    # rejects chown even for root@pod ("Operation not permitted" on every
+    # file). -a implies -o/-g, which turned an otherwise-successful transfer
+    # into exit code 23 ("partial transfer due to error") and a fatal
+    # CalledProcessError under check=True. Owner/group preservation is
+    # meaningless here anyway -- this is ephemeral pod storage, not a
+    # cross-account backup.
+    cmd = ["rsync", "-avz", "--no-owner", "--no-group", "--progress", "-e", ssh_cmd,
+          local_path, f"root@{ip}:{remote_path}"]
     print(f"  $ {' '.join(cmd)}", flush=True)
     subprocess.run(cmd, check=True)
 
@@ -161,7 +189,11 @@ def rsync_up(local_path, remote_path, ip, port, ssh_key):
 def rsync_down(remote_path, local_path, ip, port, ssh_key):
     ssh_cmd = "ssh " + " ".join(ssh_base_args(ip, port, ssh_key))
     os.makedirs(local_path, exist_ok=True)
-    cmd = ["rsync", "-avz", "--progress", "-e", ssh_cmd, f"root@{ip}:{remote_path}/", local_path]
+    # --no-owner --no-group for the same reason as rsync_up -- consistent
+    # flags on both legs, harmless locally, avoids the same failure mode if
+    # this is ever run as root.
+    cmd = ["rsync", "-avz", "--no-owner", "--no-group", "--progress", "-e", ssh_cmd,
+          f"root@{ip}:{remote_path}/", local_path]
     print(f"  $ {' '.join(cmd)}", flush=True)
     subprocess.run(cmd, check=True)
 
@@ -172,6 +204,81 @@ def ssh_run(remote_cmd, ip, port, ssh_key, timeout_s=None):
     subprocess.run(cmd, check=True, timeout=timeout_s)
 
 
+def ssh_write_file(remote_path, content, ip, port, ssh_key, timeout_s=30):
+    """Writes `content` to remote_path via `cat > remote_path` fed over stdin --
+    avoids the nested-quoting mess of trying to embed a multi-line script as a
+    single shell-command-line argument."""
+    cmd = ["ssh"] + ssh_base_args(ip, port, ssh_key) + [f"root@{ip}", f"cat > {remote_path}"]
+    subprocess.run(cmd, input=content.encode(), check=True, timeout=timeout_s)
+
+
+def ssh_capture(remote_cmd, ip, port, ssh_key, timeout_s=30):
+    cmd = ["ssh"] + ssh_base_args(ip, port, ssh_key) + [f"root@{ip}", remote_cmd]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+
+
+def start_tmux_job(remote_cmd, ip, port, ssh_key):
+    """Launch remote_cmd detached inside a tmux session, output tee'd to
+    REMOTE_EVAL_LOG, exit code written to REMOTE_EVAL_EXIT on completion.
+    Detached from the controlling SSH connection on purpose -- see the
+    module docstring's COST SAFETY section for why (a dropped local SSH
+    connection must not kill an in-progress multi-hour eval)."""
+    script = (
+        "#!/bin/bash\n"
+        f"{remote_cmd} > {REMOTE_EVAL_LOG} 2>&1\n"
+        f"echo $? > {REMOTE_EVAL_EXIT}\n"
+    )
+    ssh_write_file(REMOTE_EVAL_SCRIPT, script, ip, port, ssh_key)
+    ssh_run(f"chmod +x {REMOTE_EVAL_SCRIPT} && rm -f {REMOTE_EVAL_EXIT} {REMOTE_EVAL_LOG} && "
+            f"tmux new-session -d -s {TMUX_SESSION} {REMOTE_EVAL_SCRIPT}",
+            ip, port, ssh_key)
+    print(f"  started in tmux session {TMUX_SESSION!r}. If this script's own connection "
+          f"drops, the job keeps running -- reattach manually with:\n"
+          f"    ssh -p {port} root@{ip} -t 'tmux attach -t {TMUX_SESSION}'", flush=True)
+
+
+def stream_tmux_job(ip, port, ssh_key, timeout_s, poll_every=15):
+    """Poll REMOTE_EVAL_LOG/REMOTE_EVAL_EXIT instead of holding one long-lived
+    SSH connection open for the whole multi-hour run. Each poll is its own
+    short-lived SSH call: a single dropped connection just means one missed
+    poll (retried after poll_every seconds), not a killed job -- the job
+    itself lives in tmux on the pod, independent of any SSH session. Prints
+    new log output locally as it arrives, so this still reads as a live
+    stream even though the transport underneath is polling."""
+    seen_bytes = 0
+    t0 = time.time()
+    consecutive_failures = 0
+    while True:
+        if time.time() - t0 > timeout_s:
+            raise TimeoutError(
+                f"Remote tmux job did not finish within {timeout_s}s. It may still be "
+                f"running -- check with: ssh -p {port} root@{ip} -t 'tmux attach -t {TMUX_SESSION}'")
+        try:
+            r = ssh_capture(
+                f"tail -c +{seen_bytes + 1} {REMOTE_EVAL_LOG} 2>/dev/null; "
+                f"echo __POLL_SPLIT__; cat {REMOTE_EVAL_EXIT} 2>/dev/null || true",
+                ip, port, ssh_key, timeout_s=30)
+            consecutive_failures = 0
+        except Exception as e:
+            consecutive_failures += 1
+            print(f"  [poll #{consecutive_failures} failed ({type(e).__name__}: {e}) -- "
+                  f"job keeps running in tmux regardless of this, retrying in {poll_every}s]",
+                  flush=True)
+            time.sleep(poll_every)
+            continue
+
+        new_text, _, exit_text = r.stdout.partition("__POLL_SPLIT__\n")
+        if new_text:
+            sys.stdout.write(new_text)
+            sys.stdout.flush()
+            seen_bytes += len(new_text.encode())
+
+        exit_text = exit_text.strip()
+        if exit_text:
+            return int(exit_text)
+        time.sleep(poll_every)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gpu_query", type=str, nargs="+", default=["H100", "SXM"],
@@ -179,9 +286,11 @@ def main():
     ap.add_argument("--gpu_type_id", type=str, default=None,
                     help="Skip the catalog search, use this exact RunPod GPU type id.")
     ap.add_argument("--image", type=str, default=DEFAULT_IMAGE)
-    ap.add_argument("--volume_gb", type=int, default=80,
-                    help="Model weights (~14GB bf16) + HF cache + checkpoints (~2GB) + eval "
-                         "datasets -- 80GB leaves real margin.")
+    ap.add_argument("--container_disk_gb", type=int, default=80,
+                    help="Ordinary container disk backing /workspace (not a RunPod network "
+                         "volume -- see create_pod()'s comment for why). Model weights "
+                         "(~14GB bf16) + HF cache + checkpoints (~2GB) + eval datasets -- "
+                         "80GB leaves real margin.")
     ap.add_argument("--ssh_key", type=str, default=os.path.expanduser("~/.ssh/id_ed25519"),
                     help="Must already be registered as a public key in your RunPod account "
                          "settings -- this script does not do that part.")
@@ -247,10 +356,12 @@ def main():
     try:
         ip, port = wait_for_running(pod_id, timeout_s=args.boot_timeout)
 
-        print("\nInstalling rsync on the pod (runpod/pytorch:* images don't ship it by default "
-              "-- this is what a rsync exit code 127 over ssh means) ...", flush=True)
+        print("\nInstalling rsync + tmux on the pod (runpod/pytorch:* images don't ship "
+              "either by default -- rsync missing is what a rsync exit code 127 over ssh "
+              "means; tmux is what the full eval now runs inside, see module docstring) ...",
+              flush=True)
         ssh_run("DEBIAN_FRONTEND=noninteractive apt-get update -qq && "
-               "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq rsync",
+               "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq rsync tmux",
                ip, port, args.ssh_key)
 
         print("\nUploading code + checkpoints ...", flush=True)
@@ -278,10 +389,18 @@ def main():
                    ip, port, args.ssh_key, timeout_s=300)
             print("  sanity check passed.", flush=True)
 
-        print("\nRunning full eval (this is the slow part -- see the compute estimate in "
-              "the conversation this was built from, roughly 1-2h) ...", flush=True)
-        ssh_run(f"{env_prefix} python3 -u eval_downstream_llama2_7b.py {eval_args}",
-               ip, port, args.ssh_key, timeout_s=args.eval_timeout)
+        print("\nRunning full eval in a detached tmux session (this is the slow part -- see "
+              "the compute estimate in the conversation this was built from, roughly 1-2h; "
+              "a dropped local connection no longer kills this run, see module docstring) ...",
+              flush=True)
+        start_tmux_job(f"{env_prefix} python3 -u eval_downstream_llama2_7b.py {eval_args}",
+                       ip, port, args.ssh_key)
+        exit_code = stream_tmux_job(ip, port, args.ssh_key, timeout_s=args.eval_timeout)
+        if exit_code != 0:
+            raise RuntimeError(
+                f"Remote eval (tmux session {TMUX_SESSION!r}) exited with code {exit_code}. "
+                f"See the streamed output above for the failure -- full log is still on the "
+                f"pod at {REMOTE_EVAL_LOG} until termination below.")
 
         print("\nDownloading results ...", flush=True)
         rsync_down(REMOTE_OUT_DIR, LOCAL_OUT_DIR, ip, port, args.ssh_key)

@@ -59,7 +59,7 @@ from train_pruner_llama2_7b_wikitext2 import (
 os.environ.setdefault("HF_HOME", "/root/.cache/huggingface")
 
 DEFAULT_TASKS = ["piqa", "hellaswag", "winogrande", "arc_easy", "arc_challenge", "boolq", "openbookqa"]
-DEFAULT_SWEEP_DIR = "/workspace/Learned-Efficiency-Pruning/experiments/latest/llama2_7b_wikitext2_sweep"
+DEFAULT_SWEEP_DIR = "/workspace/results/llama2_7b_wikitext2_sweep"
 DEFAULT_LAMBDAS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0]  # excludes 1.4 -- never converged, see F6
 
 
@@ -252,8 +252,6 @@ def main():
             print(f"  [skip] lambda={lam}: no checkpoint at {ckpt_path}", flush=True)
             continue
         print(f"\n{'='*70}\nlambda={lam} -- {ckpt_path}\n{'='*70}", flush=True)
-        if kill_cmd:
-            print(f"(manual kill if needed: {kill_cmd})", flush=True)
         try:
             gates, ckpt = load_pruner_and_gates(model, ckpt_path, device)
             pct_pruned = 100 * (1 - sum(g.mean().item() for g in gates) / len(gates))

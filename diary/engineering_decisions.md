@@ -4,6 +4,24 @@ Crisp reference of every stabilisation hack, normalisation, and design decision 
 
 ---
 
+## CNN/DailyMail pruner (`train_pruner_llama2_7b_cnndailymail.py`), first real run, 2026-07-29 (F23)
+
+- **`cnn_dailymail` → `abisee/cnn_dailymail` — why:** bare `cnn_dailymail` 404s on `datasets>=4.x` (loading-script-based repos dropped). Verified live on the pod: `abisee/cnn_dailymail` gives identical split sizes (287113/13368/11490) and fields (article/highlights/id) to the original. Same fix pattern as `hellaswag`→`Rowan/hellaswag` in the sibling script.
+- **ROUGE schema defensiveness (`_rouge_scores_to_floats`) — why:** `evaluate.load("rouge")`'s return schema (plain float vs. old `Score.mid.fmeasure`) was never verified locally (package not installed in this repo's venv). Wrong assumption would have crashed AFTER 12000 steps + full-test CE + ROUGE generation, losing the whole run's compute with nothing saved — added before the real run specifically to close that risk.
+- **Cost, single (λ=0.1, seed=0) run, RunPod H100 SXM, $3/hr:**
+
+  | phase | duration | note |
+  |---|---|---|
+  | pod boot + apt install + upload + pip install + sanity check (incl. the dataset-repo debug detour) | ~3 min (est.) | one-time overhead, includes real mid-flight debugging, not just fixed setup |
+  | training loop (12000 steps, capped, non-converged) | 9275.9s = 154.6 min | exact, script-reported (`time:` field in `summary.txt`) |
+  | full-test CE eval (11,490 examples) | ~15–17 min (est.) | forward-only, cheap per example, but many batches |
+  | ROUGE generation, dense | 186s = 3.1 min | exact, from log |
+  | ROUGE generation, pruned | 196s = 3.3 min | exact, from log |
+  | rsync download + teardown | <1 min | |
+  | **total** | **~180 min ≈ 3.0 GPU-hours** | **≈ $9.00 at $3/hr** |
+
+  Projected full 9-λ default sweep at this same per-run cost: ~27 GPU-hours ≈ **~$81** (sequential, one pod) — not run, single-lambda smoke test only.
+
 ## SparseGPT baseline (`past_work/sparsegpt/`, run 2026-07-04)
 
 Faithful SparseGPT (OBS per-layer `min‖WX−ŴX‖²`, Cholesky-shared H⁻¹) on the CIFAR_big FC head {fc1,fc2,fc3}, vs SAVED LEP numbers (F13) — no LEP retrained.

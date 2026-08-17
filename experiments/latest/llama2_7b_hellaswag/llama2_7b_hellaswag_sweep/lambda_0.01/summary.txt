@@ -1,0 +1,15 @@
+Llama-2-7B MLP pruner — HellaSwag (accuracy-delta objective, char-length-normalized acc_norm scoring) — λ=0.01, seed=0 — CONVERGENCE-BASED + LR-DECAY
+layers : 32 MLP blocks, 11008 intermediate neurons each
+steps taken       : 8000
+converged         : False (max_steps cap = 8000)
+convergence check : window=5 x check_every=50 (block-mean) | rel_tol=0.05 abs_tol=0.01 | burn_in=500
+LR decay          : window=250 | 1.00e-03 -> 1.00e-04 | final state=pre_decay
+time              : 2814.8s
+------------------------------------------------------------
+final avg keep gate          : 0.6706
+final % FFN neurons pruned   : 32.94%
+------------------------------------------------------------
+hellaswag validation set (10042 examples, true argmax accuracy, not the surrogate):
+  original  accuracy         : 76.041%
+  pruned    accuracy         : 91.058%
+  accuracy drop              : -15.017pp

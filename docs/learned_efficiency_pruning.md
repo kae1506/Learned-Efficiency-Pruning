@@ -34,9 +34,13 @@ recently published trained-hypernetwork baseline, DISP-LLM (Gao et al.,
 2024): on Llama-2-7B/WikiText-2, the exact model and dataset DISP-LLM reports
 its own headline numbers on, LEP beats DISP-LLM's published perplexity at
 every converged operating point from 5% to 29% of total model parameters
-pruned. We report this result alongside an honestly diagnosed failure mode —
-one high-sparsity operating point that does not converge — and the mechanism
-we believe is responsible, rather than omitting it.
+pruned. This advantage does not fully transfer to downstream zero-shot
+accuracy, however: LEP is at parity with DISP-LLM through roughly 9% of
+parameters pruned but falls up to 3.0 points behind at the highest sparsity
+we test, a divergence we report and discuss rather than omit. We also report
+an honestly diagnosed failure mode — one high-sparsity operating point that
+does not converge — and the mechanism we believe is responsible, rather than
+omitting it.
 
 ---
 
@@ -558,6 +562,78 @@ a chance to intervene if the raw convergence check never fires even once. We
 report this as an open, unresolved methods gap rather than retrying with a
 larger step budget and hoping.
 
+### 6.5 Downstream zero-shot accuracy vs. DISP-LLM: the perplexity advantage does not transfer
+
+§6.3 compares perplexity; comparable papers (DISP-LLM, SlimLLM, LLM-Pruner,
+FLAP, GISP) also report zero-shot downstream accuracy, so we ran the same 8
+converged Llama-2-7B/WikiText-2 checkpoints plus dense through
+lm-evaluation-harness (PIQA, HellaSwag, WinoGrande, ARC-easy, ARC-challenge,
+BoolQ, OpenBookQA, 0-shot). Restricting to the 5-task subset DISP-LLM's own
+Table 3 reports (WinoGrande acc; HellaSwag/ARC-e/ARC-c/PIQA acc-norm —
+matching metric convention exactly) and comparing against DISP-LLM's own
+published numbers:
+
+**Table 5. LEP vs. DISP-LLM zero-shot downstream accuracy, Llama-2-7B, WikiText-2, no weight update (5-task average).**
+
+| % total params pruned | LEP avg acc | DISP-LLM avg acc (interpolated) | LEP $-$ DISP-LLM |
+|---|---|---|---|
+| 0% (dense) | 68.46 | 68.99 | $-0.53$ |
+| 5.39%  | 66.59 | 67.03 | $-0.44$ |
+| 6.57%  | 66.91 | 66.61 | $+0.30$ |
+| 8.89%  | 66.28 | 65.76 | $+0.52$ |
+| 11.58% | 64.37 | 64.79 | $-0.42$ |
+| 15.05% | 62.87 | 63.53 | $-0.66$ |
+| 19.79% | 60.29 | 61.81 | $-1.52$ |
+| 24.38% | 59.28 | 60.14 | $-0.86$ |
+| 28.77% | 55.51 | 58.55 | **$-3.04$** |
+
+(% total params pruned uses each checkpoint's own training-time "final % FFN
+neurons pruned" — the same figures underlying Table 4 — not a fresh
+gate reconstruction at eval time; see the note below the table.)
+
+Unlike Table 4's ppl comparison, DISP-LLM's downstream table reports only
+*two* real Llama-2-7B operating points (30%, 50%, vs. five for ppl), so the
+"interpolated" column here is a much cruder straight line between their
+dense point and their single 30% point. Our 28.77% point sits almost exactly
+at their measured 30% checkpoint, so a direct, interpolation-free comparison
+is available and more defensible: against DISP-LLM's own actually-measured
+30% value (58.10) — at a slightly *more* aggressive pruning ratio than our
+28.77%, i.e. charitable to DISP-LLM, not to us — LEP is still behind by
+**2.59 points**.
+
+*Reconstruction note:* a fresh eval-time gate reconstruction from each
+checkpoint's saved pruner weights does not reproduce the training-time
+"final % FFN neurons pruned" figure exactly — negligibly so for 7 of 8
+checkpoints ($<0.05$pp), but 44.23% reconstructed vs. 44.78% training-logged
+at $\lambda=1.0$ (0.55pp, the largest gap observed), despite the reconstructed
+checkpoint's perplexity matching the training log exactly. The accuracy
+numbers above come from whatever mask the reconstruction actually produced,
+so a small mismatch between "the mask we're reporting accuracy for" and "the
+mask's training-time self-reported sparsity" exists at $\lambda=1.0$
+specifically; the table's x-axis label instead uses the training-time figure
+for consistency with Table 4. Mechanism unconfirmed (candidates: an
+eval-mode vs. training-mode difference somewhere in the pruner forward pass,
+or borderline gate values near the STE threshold flipping under a different
+numerical path) — flagged as an open reproducibility question, not resolved
+here.
+
+The shape of this result is the opposite of Table 4's: there, LEP starts
+ahead of DISP-LLM and the margin narrows toward high sparsity; here, LEP
+starts at parity (within $\pm0.5$pp, consistent with noise on a 7-task
+harness) through roughly 9% total-param pruned, and the deficit *widens* as
+pruning increases, reaching $-3.04$pp (interpolated) / $-2.59$pp (direct) at
+our most aggressive converged point. This is a genuine, unresolved
+divergence between the two metrics, not a result to smooth over — a
+perplexity advantage over a published baseline does not, by itself,
+guarantee an equivalent downstream-accuracy advantage. Our current best
+(untested) explanation: perplexity is a smooth, dense, next-token-averaged
+metric measured on text distributionally close to WikiText-2 — the same
+corpus the pruner is trained against — while the downstream suite is
+discrete, out-of-domain multiple-choice/QA, and may depend disproportionately
+on specific circuits an in-domain-ppl-optimized mask does not protect. We
+have not tested this directly and report it as an open question (§7.5), not
+a conclusion.
+
 ---
 
 ## 7. Discussion and Limitations
@@ -628,7 +704,12 @@ have a seed-variance estimate at 7B scale and do not claim one. The
 loss-floor question raised in §3.5 remains open. Pruner-capacity scaling
 with base-model size (does the minimum viable pruner size grow with the base
 model, and how) is untested — every experiment in this paper, at every
-scale, reused the identical pruner configuration.
+scale, reused the identical pruner configuration. Most consequentially
+(§6.5): the perplexity advantage over DISP-LLM does not transfer to
+downstream zero-shot accuracy at high sparsity, and the mechanism behind
+that divergence is not established — this is the single caveat most likely
+to change a reader's overall assessment of the method and should not be
+read as a footnote.
 
 ---
 

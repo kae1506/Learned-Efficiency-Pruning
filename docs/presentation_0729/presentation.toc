@@ -1,0 +1,6 @@
+\beamer@sectionintoc {1}{Training regime \& the convergence check}{3}{0}{1}
+\beamer@sectionintoc {2}{Mistral-7B: does the method just work elsewhere?}{7}{0}{2}
+\beamer@sectionintoc {3}{Beating DISP-LLM}{10}{0}{3}
+\beamer@sectionintoc {4}{Downstream eval: the ppl win doesn't fully transfer}{15}{0}{4}
+\beamer@sectionintoc {5}{A first look: pruning for a downstream task}{19}{0}{5}
+\beamer@sectionintoc {6}{Summary}{21}{0}{6}

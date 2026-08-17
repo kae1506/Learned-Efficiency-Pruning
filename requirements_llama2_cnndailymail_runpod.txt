@@ -1,0 +1,26 @@
+# pip install -r requirements_llama2_cnndailymail_runpod.txt
+#
+# For train_pruner_llama2_7b_cnndailymail.py on a RunPod pod (runpod/pytorch:*
+# templates). Deliberately does NOT list torch: the template already ships a
+# CUDA-matched build, see requirements_gpt2_runpod.txt's comment for why
+# installing a plain PyPI torch here would be actively harmful.
+#
+# transformers/datasets/matplotlib/numpy/tqdm pinned to the same versions
+# already verified working in this project (requirements_llama2_downstream_runpod.txt).
+# evaluate + rouge_score are NEW here (not needed by any sibling script) --
+# required for the final ROUGE-via-generation eval; NOT pinned, untested in
+# this project as of 2026-07-29, no verified-good version yet (same
+# unpinned-for-now treatment lm-eval got in the downstream-eval requirements
+# file).
+
+transformers==5.12.1
+datasets==5.0.0
+numpy==2.4.2
+tqdm==4.68.3
+matplotlib==3.10.8
+sentencepiece==0.2.0
+protobuf==5.29.3
+accelerate==1.2.1
+typing_extensions>=4.12
+evaluate
+rouge_score

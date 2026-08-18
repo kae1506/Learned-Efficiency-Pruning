@@ -124,14 +124,19 @@ def merge_local_summary(out_dir):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    if os.environ.get("HF_TOKEN") is None:
-        print("WARNING: HF_TOKEN not set -- meta-llama/Llama-2-7b-hf is gate-licensed, "
-              "this will fail at model load without it.", flush=True)
+    hf_token = os.environ.get("HF_TOKEN")
+    if hf_token is None:
+        print("WARNING: HF_TOKEN not set in this shell -- meta-llama/Llama-2-7b-hf is "
+              "gate-licensed, the training script will fail at model load without a "
+              "--hf_token. Export HF_TOKEN here (this wrapper reads it once and passes "
+              "it through as --hf_token) or edit this script to hardcode one.", flush=True)
 
     cmd = [sys.executable, "-u", TRAIN_SCRIPT,
           "--lambdas", *LAMBDAS, "--seeds", *SEEDS, "--max_steps", MAX_STEPS,
           "--out_dir", OUT_DIR]
-    print(f"$ {' '.join(cmd)}", flush=True)
+    if hf_token:
+        cmd += ["--hf_token", hf_token]
+    print(f"$ {' '.join(cmd[:-1] + ['<redacted>'] if hf_token else cmd)}", flush=True)
     subprocess.run(cmd, check=True)
 
     print("\nRegenerating combined summary.txt / gap_diagnostic_all.csv from ALL lambda_*/ "

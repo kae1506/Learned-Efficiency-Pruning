@@ -15,8 +15,10 @@ Requires `pip install evaluate rouge_score` for the final ROUGE eval (not
 installed in this repo's venv -- checked before writing this, same
 situation as lm-eval in eval_downstream_llama2_7b.py).
 
-PREREQUISITE -- meta-llama/Llama-2-7b-hf is GATE-LICENSED. HF_TOKEN must be
-set to a token with ACCEPTED access. See train_pruner_llama2_7b_wikitext2.py.
+PREREQUISITE -- meta-llama/Llama-2-7b-hf is GATE-LICENSED. Pass a token with
+ACCEPTED access via --hf_token (CLI arg, not an environment variable --
+changed from the sibling scripts' HF_TOKEN env-var convention per explicit
+instruction).
 
 DATASET -- cnn_dailymail (config "3.0.0"). THREE-WAY split usage, unlike
 the train/test-only sibling scripts:
@@ -94,7 +96,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-os.environ.setdefault("HF_HOME", "/root/.cache/huggingface")
+os.environ.setdefault("HF_HOME", "./huggingface")
 
 OUT_ROOT = "/workspace/results/llama2_7b_cnndailymail_sweep"
 
@@ -164,10 +166,10 @@ class Pruner(nn.Module):
 # Model loading / SwiGLU dispatch -- verbatim.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def load_llama2_7b(device):
+def load_llama2_7b(device, hf_token=None):
     from transformers import LlamaForCausalLM
     model = LlamaForCausalLM.from_pretrained(
-        LLAMA2_REPO, use_safetensors=True, torch_dtype=torch.bfloat16
+        LLAMA2_REPO, use_safetensors=True, torch_dtype=torch.bfloat16, token=hf_token
     ).to(device)
     model.eval()
     for p in model.parameters():
@@ -216,14 +218,14 @@ def autocast_ctx(device):
 # Data -- CNN/DailyMail raw (article, summary) rows, three-way split.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_loaders(batch_size: int, num_workers: int = 0):
+def get_loaders(batch_size: int, hf_token=None, num_workers: int = 0):
     """Returns (tokenizer, train_loader, train_examples, val_examples, test_examples).
     Each *_examples is a plain list of {"article": str, "summary": str}."""
     from datasets import load_dataset
     from transformers import AutoTokenizer
     from torch.utils.data import DataLoader
 
-    tokenizer = AutoTokenizer.from_pretrained(LLAMA2_REPO)
+    tokenizer = AutoTokenizer.from_pretrained(LLAMA2_REPO, token=hf_token)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -797,6 +799,9 @@ def main():
     ap.add_argument("--lr", type=float, default=0.001)
     ap.add_argument("--log_every", type=int, default=250)
     ap.add_argument("--device", type=str, default="cuda")
+    ap.add_argument("--hf_token", type=str, default=None,
+                    help="HF token with ACCEPTED access to meta-llama/Llama-2-7b-hf "
+                         "(gate-licensed). CLI arg, not read from HF_TOKEN env var.")
     ap.add_argument("--out_dir", type=str, default=OUT_ROOT)
     ap.add_argument("--sanity_check", action="store_true",
                     help="Run the identity-gate no-op check (on a slice of validation) "
@@ -815,18 +820,20 @@ def main():
           f"max_steps={args.max_steps} | LR decay window={args.lr_decay_window} "
           f"({args.lr:.2e} -> {args.lr_min:.2e})")
 
-    if os.environ.get("HF_TOKEN") is None:
-        print("WARNING: HF_TOKEN not set. meta-llama/Llama-2-7b-hf is gate-licensed -- "
+    if args.hf_token is None:
+        print("WARNING: --hf_token not set. meta-llama/Llama-2-7b-hf is gate-licensed -- "
               "this will fail unless you're using a cached local copy or a token with "
-              "accepted license access is otherwise configured.", flush=True)
+              "accepted license access is otherwise configured (e.g. `huggingface-cli "
+              "login`).", flush=True)
 
-    print("Loading Llama-2-7B (GATE-LICENSED -- requires HF_TOKEN with accepted access) ...", flush=True)
-    model = load_llama2_7b(device)
+    print("Loading Llama-2-7B (GATE-LICENSED -- requires --hf_token with accepted access) ...", flush=True)
+    model = load_llama2_7b(device, hf_token=args.hf_token)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Llama-2-7B loaded — {n_params:,} params, frozen.", flush=True)
 
     print(f"Loading CNN/DailyMail ({CNN_DM_REPO}, config {CNN_DM_CONFIG}) ...", flush=True)
-    tokenizer, train_loader, train_examples, val_examples, test_examples = get_loaders(args.batch_size)
+    tokenizer, train_loader, train_examples, val_examples, test_examples = get_loaders(
+        args.batch_size, hf_token=args.hf_token)
     print(f"Data: train={len(train_examples):,} val={len(val_examples):,} test={len(test_examples):,}",
           flush=True)
 

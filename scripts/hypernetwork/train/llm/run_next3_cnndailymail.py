@@ -20,12 +20,18 @@ passed to THAT invocation, in "w" mode -- so a bare run here would silently
 overwrite the combined view and drop the existing 0.1 row. merge_local_summary()
 below regenerates both files afterward by scanning every lambda_*/ directory
 actually present on disk, so 0.1 stays represented alongside these 3.
+
+HF TOKEN -- pass --hf_token explicitly on the command line:
+    python3 run_next3_cnndailymail.py --hf_token hf_xxx
+(falls back to the HF_TOKEN env var if --hf_token is omitted, but the whole
+point of the CLI arg is that you don't have to export anything.)
 """
 import os
 import re
 import csv
 import sys
 import glob
+import argparse
 import subprocess
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -123,13 +129,18 @@ def merge_local_summary(out_dir):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--hf_token", type=str, default=None,
+                    help="HF token with ACCEPTED access to meta-llama/Llama-2-7b-hf. "
+                         "Falls back to the HF_TOKEN env var if omitted.")
+    args = ap.parse_args()
+
     os.makedirs(OUT_DIR, exist_ok=True)
-    hf_token = os.environ.get("HF_TOKEN")
+    hf_token = args.hf_token or os.environ.get("HF_TOKEN")
     if hf_token is None:
-        print("WARNING: HF_TOKEN not set in this shell -- meta-llama/Llama-2-7b-hf is "
-              "gate-licensed, the training script will fail at model load without a "
-              "--hf_token. Export HF_TOKEN here (this wrapper reads it once and passes "
-              "it through as --hf_token) or edit this script to hardcode one.", flush=True)
+        print("WARNING: no --hf_token passed and HF_TOKEN not set in this shell -- "
+              "meta-llama/Llama-2-7b-hf is gate-licensed, the training script will fail "
+              "at model load without one.", flush=True)
 
     cmd = [sys.executable, "-u", TRAIN_SCRIPT,
           "--lambdas", *LAMBDAS, "--seeds", *SEEDS, "--max_steps", MAX_STEPS,

@@ -1,5 +1,8 @@
-Llama-2-7B convergence+LR-decay sweep | CNN/DailyMail | seeds=[0] | max_steps=12000 | device=cuda
+Llama-2-7B convergence+LR-decay sweep | CNN/DailyMail | max_steps=12000 (regenerated locally from 4 lambda_*/ dirs on disk, merging this run with pre-existing points)
 ----------------------------------------------------------------------------------------------------
  lambda  seed |   steps  conv? |  % pruned |  orig ppl | pruned ppl |  orig R-L | pruned R-L
 ----------------------------------------------------------------------------------------------------
+   0.05     0 |   12000     NO |    11.99% |     3.750 |      2.839 |    13.69% |     18.67%
     0.1     0 |   12000     NO |    19.01% |     3.750 |      2.881 |    13.31% |     18.71%
+    0.3     0 |   12000     NO |    41.57% |     3.750 |      3.126 |    13.85% |     19.07%
+    0.8     0 |   12000     NO |    65.14% |     3.750 |      3.533 |    13.84% |     17.06%

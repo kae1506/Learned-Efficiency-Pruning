@@ -1,0 +1,20 @@
+# pip install -r requirements_llama2_cnndailymail_lora_runpod.txt
+#
+# For prune_and_lora_cnndailymail.py. Same base as
+# requirements_llama2_cnndailymail_runpod.txt (torch deliberately excluded,
+# same reasoning) plus peft -- NEW here, required for LoRA adapters, NOT
+# pinned/verified in this project as of 2026-08-19 (peft is not installed
+# in this repo's local venv, checked before writing this).
+
+transformers==5.12.1
+datasets==5.0.0
+numpy==2.4.2
+tqdm==4.68.3
+matplotlib==3.10.8
+sentencepiece==0.2.0
+protobuf==5.29.3
+accelerate==1.2.1
+typing_extensions>=4.12
+evaluate
+rouge_score
+peft

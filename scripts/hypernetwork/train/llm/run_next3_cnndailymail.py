@@ -101,7 +101,7 @@ def merge_local_summary(out_dir):
             f"{lam:>7} {seed:>5} | {p['steps_taken']:>7} "
             f"{'YES' if p['converged'] == 'True' else 'NO':>6} | {float(p['pct_pruned']):>8.2f}% | "
             f"{float(p['test_ppl_orig']):>9.3f} | {float(p['test_ppl_pruned']):>10.3f} | "
-            f"{float(p['rouge_orig_rougeL'])*100:>8.2f}% | {float(p['rouge_pruned_rougeL'])*100:>9.2f}%")
+            f"{float(p['rouge_orig_rougeL']):>8.2f}% | {float(p['rouge_pruned_rougeL']):>9.2f}%")
     summary_str = "\n".join(lines)
     with open(os.path.join(out_dir, "summary.txt"), "w") as f:
         f.write(summary_str + "\n")

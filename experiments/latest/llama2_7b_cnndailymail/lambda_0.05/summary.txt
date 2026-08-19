@@ -1,0 +1,18 @@
+Llama-2-7B MLP pruner — CNN/DailyMail (target-only CE-delta objective) — λ=0.05, seed=0 — CONVERGENCE-BASED + LR-DECAY
+layers : 32 MLP blocks, 11008 intermediate neurons each
+steps taken       : 12000
+converged         : False (max_steps cap = 12000)
+convergence check : window=5 x check_every=50 (block-mean) | rel_tol=0.05 abs_tol=0.01 | burn_in=500
+LR decay          : window=250 | 1.00e-03 -> 1.00e-04 | final state=pre_decay
+time              : 8231.1s
+------------------------------------------------------------
+final avg keep gate          : 0.8801
+final % FFN neurons pruned   : 11.99%
+------------------------------------------------------------
+cnn/dailymail test set (11490 examples, full split, target-only CE):
+  original  ppl              : 3.750
+  pruned    ppl              : 2.839
+------------------------------------------------------------
+ROUGE via generation (300-example sample of test, greedy=True, num_beams=1, max_new_tokens=128):
+  original  rouge1/rouge2/rougeL : 19.46/7.88/13.69
+  pruned    rouge1/rouge2/rougeL : 27.47/10.25/18.67

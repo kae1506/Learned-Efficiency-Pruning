@@ -1,0 +1,16 @@
+Llama-2-7B — physical surgery + Dense-LoRA (DDP x4) — CNN/DailyMail — lambda_0.3 (from experiments/latest/llama2_7b_cnndailymail/lambda_0.3/pruner.pt)
+lora: target=mlp_attn r=16 alpha=32 dropout=0.05 base_lr=0.0002 scaled_lr=0.0008 schedule=cosine warmup_ratio=0.03 weight_decay=0.0
+optimizer steps : 500 | grad_accum_steps=4 | world_size=4 | global_effective_batch=64 | gradient_checkpointing=True | time: 7107.5s
+------------------------------------------------------------
+% FFN neurons pruned (surgery) : 41.36% (gate reconstruct said 41.36%, diff=0.0000pp)
+model params after surgery     : 4,948,201,472
+------------------------------------------------------------
+cnn/dailymail test set (11490 examples, full split, target-only CE):
+  dense (orig, cached)          ppl : 3.750
+  pre-LoRA (surgery only)       ppl : 3.126  (correctness check vs cached pruned-eval: diff=0.0001)
+  post-LoRA (surgery + LoRA)    ppl : 2.941
+------------------------------------------------------------
+ROUGE via generation (300-example sample of test, greedy=True, num_beams=1):
+  dense (orig, cached)      rouge1/rouge2/rougeL/rougeLsum : 19.68/7.94/13.85/16.37
+  pre-LoRA (surgery only)   rouge1/rouge2/rougeL/rougeLsum : 27.08/10.41/18.85/25.17  (correctness check vs cached pruned-eval R-L: diff=0.2249pp)
+  post-LoRA (surgery + LoRA) rouge1/rouge2/rougeL/rougeLsum : 27.09/10.10/18.64/25.12

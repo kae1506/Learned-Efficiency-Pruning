@@ -1,0 +1,39 @@
+{
+  "arm": "dense",
+  "n_params_dense": 6738415616,
+  "pre_lora_ppl": 3.7503233929882516,
+  "post_lora_ppl": 2.7737547880467948,
+  "pre_lora_rouge": {
+    "rouge1": 0.20533504055067153,
+    "rouge2": 0.08744916129307798,
+    "rougeL": 0.13780429373464143,
+    "rougeLsum": 0.1753629205236256
+  },
+  "post_lora_rouge": {
+    "rouge1": 0.3440993986850649,
+    "rouge2": 0.149042004680808,
+    "rougeL": 0.22987407593507356,
+    "rougeLsum": 0.32501269100176644
+  },
+  "optimizer_steps": 1122,
+  "grad_accum_steps": 4,
+  "world_size": 8,
+  "global_effective_batch": 128,
+  "train_split_size": 287113,
+  "examples_seen": 143616,
+  "train_coverage_pct": 50.0207235478714,
+  "rouge_eval_examples": 3000,
+  "test_split_size": 11490,
+  "total_time": 17432.935161590576,
+  "lora_target": "mlp_attn",
+  "lora_r": 16,
+  "lora_alpha": 32,
+  "lora_dropout": 0.05,
+  "base_lr": 0.0002,
+  "scaled_lr": 0.0016,
+  "lr_schedule": "cosine",
+  "warmup_ratio": 0.03,
+  "weight_decay": 0.0,
+  "gradient_checkpointing": true,
+  "seed": 0
+}

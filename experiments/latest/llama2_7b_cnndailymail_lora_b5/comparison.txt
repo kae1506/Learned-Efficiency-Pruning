@@ -1,0 +1,50 @@
+==============================================================================
+CNN/DailyMail — Llama-2-7B — pruned+LoRA vs dense+LoRA — final ROUGE-L
+==============================================================================
+
+Arms matched on all recorded knobs (steps, batch, data budget, LoRA config, eval sample, seed) — the only difference is whether pruning happened first.
+
+------------------------------------------------------------------------------
+SETUP
+------------------------------------------------------------------------------
+  pruner ckpt          : experiments/latest/llama2_7b_cnndailymail/lambda_0.3/pruner.pt (lambda=0.3)
+  FFN neurons pruned   : 41.36%
+  params  pruned arm   : 4,948,201,472
+  params  dense  arm   : 6,738,415,616
+  optimizer steps      : 1122 (global effective batch 128, world_size 8)
+  train-split coverage : 143,616 examples seen = 50.0% of the 287,113-example train split
+  ROUGE eval sample    : 3000 examples (deterministic prefix of the 11490-example test split)
+  LoRA                 : target=mlp_attn r=16 alpha=32 dropout=0.05 base_lr=0.0002 sched=cosine
+  wall time            : pruned 15887.5s | dense 17432.9s
+
+------------------------------------------------------------------------------
+PERPLEXITY (full 11490-example test split, target-only CE)
+------------------------------------------------------------------------------
+  dense, zero-shot (live, dense arm)   : 3.750
+  dense + LoRA                         : 2.774
+  pruned, no LoRA (surgery only)       : 3.126
+  pruned + LoRA                        : 2.979
+
+------------------------------------------------------------------------------
+ROUGE via greedy generation (3000-example sample)
+------------------------------------------------------------------------------
+                                        rouge1    rouge2    rougeL rougeLsum
+  dense, zero-shot (live)                20.53      8.74     13.78     17.54
+  dense + LoRA                           34.41     14.90     22.99     32.50
+  pruned, no LoRA (surgery only)         33.45     14.16     22.27     31.54
+  pruned + LoRA                          34.31     14.93     22.93     32.38
+  [legacy] dense cached @300             19.68      7.94     13.85     16.37
+    ^ measured on 300 examples by the pruning run, NOT this run's sample size — shown for provenance only, do not compare it to the rows above.
+
+==============================================================================
+HEADLINE — final ROUGE-L, pruned+LoRA vs dense+LoRA
+==============================================================================
+  pruned + LoRA  R-L : 22.93%
+  dense  + LoRA  R-L : 22.99%
+  difference         : -0.06 pp (dense ahead)
+
+  For B5: the dense arm moved 13.78% -> 22.99% R-L (+9.21 pp) on LoRA alone, with no pruning anywhere.
+  Pruning is the active ingredient only to the extent the -0.06 pp gap above survives — a gap inside the eval sample's noise band does not establish it.
+
+  NO CONFIDENCE INTERVAL: per-example score dumps were not supplied (--pruned_preds/--dense_preds), so the -0.06 pp difference above is a bare point estimate over 3000 examples with no error bar. Do not read it as separated without one.
+==============================================================================

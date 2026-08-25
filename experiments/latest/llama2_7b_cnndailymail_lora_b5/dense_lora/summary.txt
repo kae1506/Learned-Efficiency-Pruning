@@ -1,0 +1,14 @@
+Llama-2-7B — DENSE (no pruning) + LoRA (DDP x8) — CNN/DailyMail
+lora: target=mlp_attn r=16 alpha=32 dropout=0.05 base_lr=0.0002 scaled_lr=0.0016 schedule=cosine warmup_ratio=0.03 weight_decay=0.0
+optimizer steps : 1122 | grad_accum_steps=4 | world_size=8 | global_effective_batch=128 | gradient_checkpointing=True | time: 17432.9s
+train-split coverage : 143,616 examples seen = 50.0% of the 287,113-example train split (0.50 epochs)
+------------------------------------------------------------
+model params (dense, no pruning) : 6,738,415,616
+------------------------------------------------------------
+cnn/dailymail test set (11490 examples, full split, target-only CE):
+  pre-LoRA (dense, zero-shot)   ppl : 3.750
+  post-LoRA (dense + LoRA)      ppl : 2.774
+------------------------------------------------------------
+ROUGE via generation (3000-example prefix sample of test, greedy=True, num_beams=1):
+  pre-LoRA (dense, zero-shot)  rouge1/rouge2/rougeL/rougeLsum : 20.53/8.74/13.78/17.54
+  post-LoRA (dense + LoRA)     rouge1/rouge2/rougeL/rougeLsum : 34.41/14.90/22.99/32.50

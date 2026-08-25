@@ -167,3 +167,51 @@ Follow-up to F3/F4 (pruner capacity doesn't meaningfully affect outcome — is t
 - MNIST MLP 784→1024→1024→10, dropout 0.1, Adam lr 0.001, 10 epochs, batch 128.
 - Pruner: 1000 steps, 64 samples/step, lr 1e-3. sparsity_weight 0.05 (sweeps) / 0.3 (config) / 0.5 (shape studies).
 - Shape-study checkpoints: `mnist_model.pt` [1024,1024], `mnist_wide2048.pt` [2048], `mnist_deep4x512.pt` [512×4], `mnist_narrow205x2.pt` [205,205].
+
+## B5 dense-fine-tune control at DDP scale — CNN/DailyMail LoRA (2026-08-20)
+Setting up the pruned-vs-dense LoRA comparison that F23 flagged as the missing control.
+
+- **Built `lora_finetune_dense_cnndailymail_ddp.py` — why:** the pruned arm
+  (`prune_and_lora_cnndailymail_ddp.py`) was already DDP, but its dense counterpart was
+  single-GPU only. At a fixed `--max_steps`, running the arms at different `world_size` means
+  a world_size-fold difference in examples seen, plus a different global effective batch and a
+  different linearly-scaled LR. That is a data-budget comparison, not a pruning comparison —
+  B5's question cannot be answered by it. New script imports `setup_distributed` /
+  `rank0_first_call` / `wrap_with_lora_ddp` / `evaluate_ce_ddp` / `evaluate_rouge_ddp` from the
+  pruned arm rather than reimplementing them, so the two arms cannot silently drift apart.
+- **Dense baseline measured LIVE in the dense arm, not read from the pruner checkpoint — why:**
+  the checkpoints' cached `rouge_orig`/`rouge_pruned` were measured at the pruning run's
+  `--rouge_eval_examples=300`. ROUGE is a mean of per-example F-measures, so a 300-example and a
+  3000-example number estimate the same quantity but are not the same statistic. Raising the eval
+  sample makes the cached number non-comparable; a live measurement on the same enlarged sample
+  is. Added a loud NOTE + a `rouge_check_valid` guard in the pruned arm so its surgery-correctness
+  cross-check (which is only meaningful at the cached size) doesn't fire a spurious WARNING at
+  other sample sizes. `sample_examples()` is a deterministic prefix slice (`examples[:n]`, no RNG),
+  so equal `--rouge_eval_examples` gives both arms a byte-identical eval set — this is what makes
+  a *paired* bootstrap on the difference legitimate.
+- **`HF_HUB_OFFLINE=1` / `HF_DATASETS_OFFLINE=1` in the launcher — why:** `rank0_first_call`
+  serializes rank 0 against the rest but NOT the other 7 against each other; after the barrier all
+  7 call `from_pretrained()` at once and each re-resolves the repo against the hub. First launch of
+  the real run died ~20s in: rank 2 *only* raised "does not appear to have a file named
+  model-00001-of-00002.safetensors" while that shard was present and intact locally — a transient
+  hub-resolution failure under 7-way concurrency, not a missing file. The 2-rank sanity checks never
+  exercised it (one concurrent caller, not seven). Everything needed is cached and verified to load
+  offline (Llama-2-7B both shards, CNN/DailyMail, the rouge metric module). Trade-off accepted: a
+  genuinely missing cache entry now fails loudly instead of silently downloading — correct for a
+  10-hour run. **Lesson: an N=2 distributed sanity check does not exercise N=8 concurrency.**
+- **Measured throughput, 8x A6000 (replaces guesswork in sizing these runs):** dense train
+  15.95 s/step at `batch=4 x grad_accum=4 x world_size=8` (128 ex/step, ~58 TFLOPS achieved,
+  ~37% of A6000 bf16 peak — reasonable for an HF loop with gradient checkpointing on, little
+  headroom without flash-attn/sequence packing). Full 11,490-example test CE sharded 8 ways: 332s
+  per eval pass. ROUGE generation: **0.25 s/example wall** — cheap, which is why the eval sample
+  was the affordable knob to raise and the step budget was the expensive one.
+- **Budget confirmed with the user:** 1122 steps = 143,616 examples = **50% of the 287,113-example
+  train split** per arm (~9.7h both arms), ROUGE on **3000** test examples (26% of test). The
+  alternative of a full epoch (2244 steps) was ~18.5h and declined.
+- **Preliminary signal, NOT a result (from the 20-step throwaway timing probe):** dense+LoRA at
+  2,560 examples seen (0.9% coverage) reached test ppl **2.891**, vs the prior pruned+LoRA run's
+  **2.941** at 32,000 examples (11% coverage). Full-test-split ppl is directly comparable across
+  the two; the ROUGE numbers are not (64- vs 300-example samples). Arms were NOT matched
+  (world_size 8 vs 4 → scaled LR 1.6e-3 vs 8e-4, global batch 128 vs 64). Points the same way
+  B5(a) feared — LoRA doing the work, sparsity along for the ride — but the matched run is what
+  settles it.

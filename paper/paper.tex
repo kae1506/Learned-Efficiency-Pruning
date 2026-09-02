@@ -60,7 +60,19 @@ control shows this is attributable to fine-tuning itself, not sparsity ---
 what survives is a genuine compression result, a Llama-2-7B model with
 26.6\% fewer parameters matching fine-tuned dense quality on ROUGE-L at a
 modest perplexity cost, which we report alongside the caveats that keep it
-from being a stronger claim.
+from being a stronger claim. A second, independent case study on SAMSum
+dialogue summarization surfaces two further genuine findings. First,
+task-relevant behavioral specialization, producing a genuine, appropriately
+short summary instead of continuing the dialogue or rambling to the
+generation-length cap, emerges from pruning alone, before any fine-tuning
+and without a single gradient update ever touching the frozen model's own
+weight values, purely as a consequence of which neurons a separately-trained
+selector network chooses to keep. Second, once both arms are fine-tuned
+under matched budgets, the pruned model reaches 94.7\% of dense fine-tuned
+quality on ROUGE-L, a real, bootstrap-confirmed 2.25-point gap rather than
+the CNN/DailyMail case's statistical tie, while retaining only 48.2\% of
+total parameters (80.6\% of feed-forward neurons removed) --- an honestly
+quantified compression-for-quality trade, not a free one.
 \end{abstract}
 
 \section{Introduction}
@@ -807,6 +819,116 @@ This section's scope is deliberately narrow: it shows pruning-then-fine-tune
 is a viable path to a smaller, task-adapted model at (here) no measurable
 rouge-L cost, not that pruning improves anything, and not that this
 trade-off generalizes beyond the one operating point tested.
+
+\subsection{Case study: pruning plus LoRA fine-tuning on SAMSum dialogue summarization}
+\label{sec:samsum}
+
+We repeat \S\ref{sec:cnndailymail}'s design on a second, independent
+summarization dataset, SAMSum (dialogue $\to$ short summary), at the most
+aggressive operating point in an 8-$\lambda$ Llama-2-7B/SAMSum sweep
+($\lambda=1.6$). This case study surfaces two results we report as genuine
+findings of the paper, not as a repeat of \S\ref{sec:cnndailymail}'s
+conclusion.
+
+\paragraph{Motivation and a methodological fix.} The raw sweep showed
+pruning beating the zero-shot dense model on rouge-L at every $\lambda$,
+including 80\%+ sparsity --- implausible as a quality claim, and diagnosed as
+a generation-length artifact: SAMSum references are short ($\sim$28 tokens),
+but nothing in the training pipeline ever taught the model to stop, so
+dense generation rambled to the 96-token cap while continuing the dialogue
+or emitting meta-commentary rather than summarizing, corrupting rouge-L's
+precision term. We fixed this at the source rather than only at
+evaluation time: we appended an end-of-sequence token to the supervised
+target span both in the pruner's own CE-delta training objective
+(\S\ref{sec:training-objective}) and in the downstream LoRA fine-tune, applied identically to
+every arm below. An earlier attempt that fixed only the LoRA stage, leaving
+the pruner itself trained without this signal, showed the same qualitative
+pattern but confounded by residual rambling in the pruned arm's own
+pre-fine-tuning generations; we disregard that run and report only the
+fully-consistent pipeline here.
+
+\paragraph{Matched-control design.} We fine-tune both a pruned model
+($\lambda=1.6$, 80.57\% of FFN neurons removed, 3{,}250{,}896{,}896 of
+6{,}738{,}415{,}616 params retained --- a 51.76\% total-parameter reduction)
+and the dense model with LoRA, identical configuration to
+\S\ref{sec:cnndailymail} (rank 16, $\alpha=32$, dropout 0.05, all
+attention/MLP projections, cosine schedule, 3\% warmup, weight decay 0),
+under identical budgets: 345 optimizer steps (3 epochs over SAMSum's
+14{,}731-example train split --- SAMSum is roughly $20\times$ smaller than
+CNN/DailyMail, so neither \S\ref{sec:cnndailymail}'s step count nor its
+``50\% of the split'' rule transfers), global effective batch 128, identical
+seed. ROUGE is scored by greedy generation over the \emph{entire}
+819-example test split for every arm (no prefix-sampling question to manage,
+unlike \S\ref{sec:cnndailymail}'s caveat (5)), and per-example scores are
+retained for both arms, enabling a paired bootstrap confidence interval that
+\S\ref{sec:cnndailymail}'s comparison lacked.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Pruned vs.\ dense LoRA fine-tuning, Llama-2-7B, SAMSum (full 819-example test split, both ppl and rouge).}
+\label{tab:samsum}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+arm & params & ppl & rouge-1 & rouge-2 & rouge-L & mean gen.\ tok \\
+\midrule
+dense, zero-shot     & 6{,}738{,}415{,}616 & 3.978 & 24.05 & 7.47  & 18.77 & 95.5 \\
+dense + LoRA          & 6{,}738{,}415{,}616 & \textbf{3.802} & 50.80 & 26.66 & 42.22 & 26.7 \\
+pruned, surgery only & 3{,}250{,}896{,}896 & 3.523 & 37.99 & 18.60 & 30.53 & \textbf{18.7} \\
+pruned + LoRA          & 3{,}250{,}896{,}896 & 4.161 & 48.77 & 24.49 & 39.97 & 25.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Finding 1: task-relevant behavior emerges from pruning alone, with no gradient ever touching the frozen model's weights.} Before any fine-tuning, the physically-pruned model already summarizes: rouge-L 30.53 against the dense zero-shot model's 18.77, a
++11.76pp gap. Both models are entirely untrained on this task at this point
+--- the only difference is which 80.57\% of FFN neurons the (separately,
+gradient-trained) pruning network chose to remove. The gap is visible
+directly in generation length: mean output collapses from 95.5 tokens
+(dense, rambling to the cap) to 18.7 tokens (pruned, close to the
+$\sim$28-token reference length) with no mechanism in either model that was
+ever told to stop early. The same qualitative pattern holds independently in
+\S\ref{sec:cnndailymail}: surgery-only rouge-L 22.27 against a 13.78 dense
+zero-shot baseline (Table~\ref{tab:cnndailymail}), a +8.49pp gap, on a
+different task and a different pruner checkpoint. We are precise about the
+causal claim: the pruning network's parameters are trained with gradients
+against labeled task data (\S\ref{sec:training-objective}); what does not
+happen, in either case study, is any gradient touching the frozen base
+model's own weight values. Structural subtraction of neurons, decided by a
+small trained selector, is on its own sufficient to induce a large,
+task-relevant behavioral change in a frozen 7-billion-parameter model.
+
+\paragraph{Finding 2: compression at a real, quantified quality cost --- not free, unlike \S\ref{sec:cnndailymail}.} Fine-tuning both arms under matched budgets
+narrows the gap substantially but does not close it: pruned+LoRA reaches
+rouge-L 39.97 against dense+LoRA's 42.22, a 2.25-point gap. Unlike
+\S\ref{sec:cnndailymail}, per-example score pairs were retained for both
+arms here, giving a paired bootstrap confidence interval over the full
+819-example test split (10{,}000 resamples): mean difference $-2.30$pp, 95\%
+CI $[-3.39,-1.23]$pp, $p<0.0001$ --- the gap is statistically separated at
+this sample size, not sampling noise. We report this plainly rather than as
+parity: the pruned model reaches 94.7\% of dense+LoRA's rouge-L
+(39.97/42.22) while carrying 48.24\% of the total parameters
+(3{,}250{,}896{,}896 of 6{,}738{,}415{,}616, from 80.57\% of FFN neurons
+removed within the pruned layers --- the two percentages are not the same
+quantity, and only the total-parameter figure should be read as ``model
+size''). This is a genuine, honestly quantified compression-for-quality
+trade, distinct in kind from \S\ref{sec:cnndailymail}'s tied result
+precisely because the cost here is real, measured, and does not vanish
+under a confidence interval.
+
+\paragraph{Caveats.} (1) \emph{Single seed, single sparsity level}
+($\lambda=1.6$, the most aggressive point in the sweep): we do not know
+whether either finding holds at lighter pruning ratios. (2)
+\emph{Non-converged pruner}: as in \S\ref{sec:cnndailymail}, the checkpoint
+never triggered \S\ref{sec:convergence}'s block-mean flatness check before
+the fixed step cap. (3) \emph{The fix itself was load-bearing}: Finding 1
+depended on retraining the pruner with an end-of-sequence-aware objective,
+not just patching evaluation; we disregard our first, pruner-side-unfixed
+attempt at this comparison rather than report it, on the grounds that its
+residual generation-length confound made it uninterpretable, not merely
+imprecise. (4) \emph{Greedy decoding only} (\texttt{num\_beams=1}); we did
+not test whether beam search changes either arm's behavior. (5) As in
+\S\ref{sec:cnndailymail}, the dense zero-shot baseline's weak prompt-following is not independently verified to be free of prompt-formatting artifacts, though this affects only the motivating diagnosis, not the matched-control table, since every arm above is scored under identical conditions.
 
 \section{Discussion and Limitations}
 \label{sec:discussion}

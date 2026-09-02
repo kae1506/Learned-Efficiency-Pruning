@@ -241,14 +241,21 @@ def sample_examples(examples, n):
 # Training-batch construction -- dialogue masked out, loss on summary only.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_training_batch(examples, tokenizer, max_dialogue_chars, max_summary_tokens):
+def build_training_batch(examples, tokenizer, max_dialogue_chars, max_summary_tokens,
+                         append_eos=False):
     """ctx_ids vs full_ids diff to locate the continuation span -- same F21-
     style trick as WikiText-2/HellaSwag/CNN-DailyMail (tokenizer merge
     boundary imprecision at the ctx/summary join is the same known, unfixed
     caveat as those scripts). Dialogue truncated to max_dialogue_chars
     BEFORE tokenizing (character-level, not exact token budget -- see
     module docstring; unlike the CNN/DailyMail sibling this rarely fires
-    given how short SAMSum dialogues are)."""
+    given how short SAMSum dialogues are).
+
+    append_eos mirrors lora_samsum_ddp.py's build_batch fix verbatim: appended
+    AFTER truncation, so the supervised target always ends on eos_token_id and
+    the CE-delta objective can score whether pruning preserves the model's
+    ability to predict its own stopping point -- see that script's module
+    docstring, KNOWN METHODOLOGICAL FLAW section, for why this matters."""
     rows = []
     for ex in examples:
         dialogue = ex["dialogue"][:max_dialogue_chars]
@@ -258,6 +265,8 @@ def build_training_batch(examples, tokenizer, max_dialogue_chars, max_summary_to
         full_ids = tokenizer(full_text)["input_ids"]
         if len(full_ids) - len(ctx_ids) > max_summary_tokens:
             full_ids = full_ids[:len(ctx_ids) + max_summary_tokens]
+        if append_eos:
+            full_ids = full_ids + [tokenizer.eos_token_id]
         rows.append((full_ids, len(ctx_ids)))
 
     max_len = max(len(ids) for ids, _ in rows)
@@ -281,14 +290,16 @@ def build_training_batch(examples, tokenizer, max_dialogue_chars, max_summary_to
 
 @torch.no_grad()
 def evaluate_ce(model, examples, device, tokenizer, gates=None, desc="eval",
-                batch_size=8, max_dialogue_chars=1600, max_summary_tokens=96):
+                batch_size=8, max_dialogue_chars=1600, max_summary_tokens=96,
+                append_eos=False):
     ctx = apply_gates(model, gates) if gates is not None else contextlib.nullcontext()
     total_nll = total_tokens = 0
     with ctx:
         for i in tqdm(range(0, len(examples), batch_size), desc=desc, unit="batch",
                       leave=False, dynamic_ncols=True):
             batch = examples[i:i + batch_size]
-            input_ids, attn, labels = build_training_batch(batch, tokenizer, max_dialogue_chars, max_summary_tokens)
+            input_ids, attn, labels = build_training_batch(batch, tokenizer, max_dialogue_chars,
+                                                            max_summary_tokens, append_eos=append_eos)
             input_ids, attn, labels = input_ids.to(device), attn.to(device), labels.to(device)
             with autocast_ctx(device):
                 loss = model(input_ids, attention_mask=attn, labels=labels).loss
@@ -425,7 +436,7 @@ def gap_diagnostic_checkpoint(pruner, model, tokenizer, train_sample, val_sample
     avg_gate = float(np.mean(per_layer_keep))
 
     kw = dict(batch_size=args.eval_batch_size, max_dialogue_chars=args.max_dialogue_chars,
-             max_summary_tokens=args.max_summary_tokens)
+             max_summary_tokens=args.max_summary_tokens, append_eos=args.append_eos)
     train_orig_ce   = evaluate_ce(model, train_sample, device, tokenizer, gates=None,   desc="gap: train orig",   **kw)
     train_pruned_ce = evaluate_ce(model, train_sample, device, tokenizer, gates=gates, desc="gap: train pruned", **kw)
     val_orig_ce     = evaluate_ce(model, val_sample,   device, tokenizer, gates=None,   desc="gap: val orig",     **kw)
@@ -456,12 +467,13 @@ GAP_CSV_COLUMNS = [
 # ─────────────────────────────────────────────────────────────────────────────
 
 def pruner_step(pruner, model, tokenizer, optimizer, batch_examples, sparsity_weight, device,
-                max_dialogue_chars, max_summary_tokens):
+                max_dialogue_chars, max_summary_tokens, append_eos=False):
     optimizer.zero_grad()
     weights = get_mlp_weights(model)
     gates = pruner(weights)
 
-    input_ids, attn, labels = build_training_batch(batch_examples, tokenizer, max_dialogue_chars, max_summary_tokens)
+    input_ids, attn, labels = build_training_batch(batch_examples, tokenizer, max_dialogue_chars,
+                                                    max_summary_tokens, append_eos=append_eos)
     input_ids, attn, labels = input_ids.to(device), attn.to(device), labels.to(device)
 
     with torch.no_grad(), autocast_ctx(device):
@@ -574,7 +586,8 @@ def train_one_converge(lam, seed, model, tokenizer, train_loader, train_examples
             loader_iter = iter(train_loader)
             batch = next(loader_iter)
         m = pruner_step(pruner, model, tokenizer, opt, batch, lam, device,
-                        args.max_dialogue_chars, args.max_summary_tokens)
+                        args.max_dialogue_chars, args.max_summary_tokens,
+                        append_eos=args.append_eos)
 
         history["loss"].append(m["loss"]); history["ce_orig"].append(m["ce_orig"])
         history["ce_pruned"].append(m["ce_pruned"]); history["avg_gate"].append(m["avg_gate"])
@@ -654,7 +667,7 @@ def train_one_converge(lam, seed, model, tokenizer, train_loader, train_examples
     # Cheap CE/ppl -- full test split, matching the "test set used whole,
     # untruncated" convention from the WikiText-2 sibling.
     ce_kw = dict(batch_size=args.eval_batch_size, max_dialogue_chars=args.max_dialogue_chars,
-                max_summary_tokens=args.max_summary_tokens)
+                max_summary_tokens=args.max_summary_tokens, append_eos=args.append_eos)
     test_orig_ce   = evaluate_ce(model, test_examples, device, tokenizer, gates=None,
                                 desc=f"[{tag}] test CE orig", **ce_kw)
     test_pruned_ce = evaluate_ce(model, test_examples, device, tokenizer, gates=final_gates,
@@ -776,6 +789,12 @@ def main():
     ap.add_argument("--max_summary_tokens", type=int, default=96,
                     help="Safety cap on the target continuation length (measured live: "
                          "summary max is 300 chars / ~75 tokens).")
+    ap.add_argument("--append_eos", action="store_true", default=False,
+                    help="Append eos_token_id to the supervised target so the CE-delta "
+                         "objective itself sees a stopping signal, not just downstream LoRA. "
+                         "Mirrors lora_samsum_ddp.py's --append_eos verbatim. Defaults to "
+                         "FALSE to stay faithful to the original 8-lambda sweep's convention "
+                         "-- opt in per run, not silently changed.")
     ap.add_argument("--embed_dim", type=int, default=64)
     ap.add_argument("--lstm_hidden", type=int, default=128)
     ap.add_argument("--lr", type=float, default=0.001)

@@ -1,0 +1,16 @@
+Llama-2-7B — SAMSum — PRUNED arm + LoRA (DDP x8)
+pruner ckpt : /data/home/keshava/work/Learned-Efficiency-Pruning/experiments/latest/llama2_7b_samsum_eos/lambda_1.6/pruner.pt (lambda=1.6)
+lora: target=mlp_attn r=16 alpha=32 dropout=0.05 base_lr=0.0002 scaled_lr=0.0016 schedule=cosine warmup=0.03 wd=0.0
+steps=345 grad_accum=4 world_size=8 eff_batch=128 append_eos=True time=1238.4s
+coverage: 44,160 examples = 3.00 epochs
+------------------------------------------------------------
+% FFN pruned : 80.57%
+model params : 3,250,896,896
+------------------------------------------------------------
+samsum test (819 ex, full split, target-only CE):
+  pre-LoRA  ppl : 3.523
+  post-LoRA ppl : 4.161
+------------------------------------------------------------
+ROUGE via generation (819 ex = FULL test split, greedy):
+  pre-LoRA  r1/r2/rL/rLsum : 37.99/18.60/30.53/30.57   (mean gen tok 18.7/96)
+  post-LoRA r1/r2/rL/rLsum : 48.77/24.49/39.97/39.92   (mean gen tok 25.9/96)

@@ -1,0 +1,9 @@
+=== 10:39:38  arm=pruned  variant=noeos  -> /data/home/keshava/work/Learned-Efficiency-Pruning/logs/samsum_lora_b5/noeos_pruned.log
+    done 11:05:16
+=== 11:05:16  arm=dense  variant=noeos  -> /data/home/keshava/work/Learned-Efficiency-Pruning/logs/samsum_lora_b5/noeos_dense.log
+    done 11:39:55
+=== 11:39:55  arm=pruned  variant=eos  -> /data/home/keshava/work/Learned-Efficiency-Pruning/logs/samsum_lora_b5/eos_pruned.log
+    done 12:04:14
+=== 12:04:14  arm=dense  variant=eos  -> /data/home/keshava/work/Learned-Efficiency-Pruning/logs/samsum_lora_b5/eos_dense.log
+    done 12:37:32
+ALL 4 RUNS COMPLETE 12:37:32

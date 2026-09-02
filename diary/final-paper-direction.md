@@ -167,11 +167,19 @@ Mechanism not established. Plausible, untested candidate: ppl is a smooth, dense
 
 Full per-lambda per-task numbers: `experiments/latest/llama2_7b_downstream/summary.json`/`summary.txt`. Raw DISP-LLM Table 3 source: `docs/papers/disp_llm_gao2024.pdf`.
 
-### 7.3 Case study: task-specialization via pruning (F19 → F23 → B5) — IN PROGRESS, gated on B5's control, NOT yet a claim
+### 7.3 Case study: task-specialization via pruning (F19 → F23 → B5 → F25) — RESOLVED 2026-08-21, written up as §6.6 in `paper.tex`
+
+**STATUS, 2026-08-25: B5's control ran (F25) and came back negative for the specialization claim, positive for a compression claim.** Written up in `paper/paper.tex` §6.6 ("Case study: pruning plus LoRA fine-tuning on CNN/DailyMail summarization") with the compression-only framing constraint #5 anticipated: dense+LoRA and pruned+LoRA reach statistically indistinguishable ROUGE-L (22.99 vs 22.93), dense wins on perplexity (2.774 vs 2.979), so the section's claim is "26.6% fewer params at iso ROUGE-L quality," not "pruning improves task performance." Abstract updated to match (previously said "even increasing performance," which predates F25 and is no longer accurate). All caveats from §7.3 below carried into the write-up (no CI on the point estimate, single seed/λ, non-converged pruner, unverified weak dense baseline, N=300→3000 sample-size correction).
+
+**Framing call flagged, not silently made**: per this doc's own constraint #5, a negative B5 result was supposed to mean "cut back to a footnote," not a full subsection — I judged a full subsection was still warranted since a real matched-control experiment with caveats stated plainly is exactly the paper's established style elsewhere (§6.5, §7.1-7.2), but this is a judgment call on scope/prominence, not just a factual writeup, and should be confirmed rather than treated as final.
+
+<details><summary>Original pre-F25 framing (kept for reference)</summary>
 
 Reopened from a flat exclusion (§0.5 constraint #5, revised 2026-07-29) — this section exists to be written up *if and only if* B5's dense-fine-tune control confirms sparsity is doing something a plain fine-tune doesn't already give for free. Until then, treat everything here as a case study in progress, not a result to cite in the abstract/conclusion.
 
 **STATUS check-in, 2026-07-31: still the single blocking item for this section.** B5's control (TODO list below) has not been run. Do not let this drift — it's the one experiment standing between "case study in progress" and either a real §7.3 or getting cut back to a footnote per constraint #5's original ruling.
+
+</details>
 
 **The pattern, two occurrences:**
 - **F19** (OPT-125M, WikiText-2): pruned model showed lower in-domain CE than dense. Later found substantially attributable to a tokenization bug (F21, per-line BOS artifact roughly halving the reported baseline ppl) — not retracted entirely (a smaller, real-shaped effect survived the fix, per B8's partial re-check), but the original headline number doesn't hold as reported.

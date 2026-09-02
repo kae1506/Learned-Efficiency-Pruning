@@ -1,0 +1,16 @@
+Llama-2-7B — SAMSum — DENSE arm + LoRA (DDP x8)
+pruner ckpt : n/a (dense control -- no surgery)
+lora: target=mlp_attn r=16 alpha=32 dropout=0.05 base_lr=0.0002 scaled_lr=0.0016 schedule=cosine warmup=0.03 wd=0.0
+steps=345 grad_accum=4 world_size=8 eff_batch=128 append_eos=False time=1772.3s
+coverage: 44,160 examples = 3.00 epochs
+------------------------------------------------------------
+% FFN pruned : 0 (dense)
+model params : 6,738,415,616
+------------------------------------------------------------
+samsum test (819 ex, full split, target-only CE):
+  pre-LoRA  ppl : 3.668
+  post-LoRA ppl : 3.903
+------------------------------------------------------------
+ROUGE via generation (819 ex = FULL test split, greedy):
+  pre-LoRA  r1/r2/rL/rLsum : 24.05/7.47/18.77/20.97   (mean gen tok 95.5/96)
+  post-LoRA r1/r2/rL/rLsum : 36.32/17.55/29.00/28.35   (mean gen tok 96.0/96)

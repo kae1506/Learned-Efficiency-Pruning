@@ -52,13 +52,15 @@ every converged operating point from 5\% to 29\% of total model parameters
 pruned. This advantage does not fully transfer to downstream zero-shot
 accuracy, however: LEP is at parity with DISP-LLM through roughly 9\% of
 parameters pruned but falls up to 3.0 points behind at the highest sparsity
-we test, a divergence we report and discuss rather than omit. We also demonstrate an
-interesting use-case of the method in applying structured pruning specifically
-for downstream tasks like summarisation; by pruning the Llama2-7b model specifically
-based on the DailyCNN summarisation dataset, we are able to show that a purely pre-trained
-model can be made upto 30\% smaller while at certain points even increasing performance.
-We also attach interpretability work and further directions this work can be
-expanded to. 
+we test, a divergence we report and discuss rather than omit. We also report a
+case study applying the method ahead of downstream LoRA fine-tuning on
+CNN/DailyMail summarization: an early result appeared to show pruning
+\emph{improving} task performance, but a matched dense-vs-pruned fine-tuning
+control shows this is attributable to fine-tuning itself, not sparsity ---
+what survives is a genuine compression result, a Llama-2-7B model with
+26.6\% fewer parameters matching fine-tuned dense quality on ROUGE-L at a
+modest perplexity cost, which we report alongside the caveats that keep it
+from being a stronger claim.
 \end{abstract}
 
 \section{Introduction}
@@ -706,6 +708,106 @@ on specific circuits an in-domain-ppl-optimized mask does not protect. We
 have not tested this directly and report it as an open question (\S\ref{sec:open-items}), not
 a conclusion.
 
+\subsection{Case study: pruning plus LoRA fine-tuning on CNN/DailyMail summarization}
+\label{sec:cnndailymail}
+
+Every result so far in this paper leaves the base model's weights untouched,
+before and after pruning (\S\ref{sec:problem-setup}). This section is a
+deliberate, clearly-scoped exception: we ask whether a pruned model recovers
+task performance under \emph{subsequent} LoRA fine-tuning, and whether
+pruning contributes anything a plain fine-tune of the dense model does not
+already give for free. We report it as a self-contained case study, not part
+of the paper's main compression claim.
+
+\paragraph{Motivation.} An early signal (single run, $\lambda=0.1$,
+non-converged, Llama-2-7B, CNN/DailyMail, target-only cross-entropy)
+appeared to show a pruned model \emph{beating} the frozen dense model on
+both held-out perplexity (3.750 $\to$ 2.881) and generation-quality ROUGE
+(rouge-L 13.31 $\to$ 18.71). This is the same qualitative shape as an
+earlier, since-largely-retracted result on OPT-125M/WikiText-2
+(\S\ref{sec:cautionary-tale}) --- but here the training path was clean of
+that result's tokenization confound, and the metric was a real generation
+task, not in-domain perplexity alone. It was flagged as suggestive, not
+conclusive: the dense baseline being compared against was zero-shot (no
+fine-tuning at all), so an apparent ``pruning helps'' result could just as
+easily be ``any adaptation helps, and this run happened to include one.''
+
+\paragraph{Matched-control design.} We resolve this directly: fine-tune both
+a pruned model ($\lambda=0.3$, 41.36\% of FFN neurons removed,
+4{,}948{,}201{,}472 of 6{,}738{,}415{,}616 params retained --- a 26.6\%
+total-parameter reduction) and the dense model with LoRA (rank 16,
+$\alpha=32$, dropout 0.05, all seven attention/MLP projections, cosine
+schedule, 3\% warmup, weight decay 0), under identical budgets: 1{,}122
+optimizer steps, global effective batch 128, 143{,}616 examples seen (50\%
+of the 287{,}113-example CNN/DailyMail train split), identical seed. ROUGE
+is scored by greedy generation over the same 3{,}000-example prefix of the
+test split (26\% of the 11{,}490-example test set) for every arm. Every
+hyperparameter and scale setting is asserted equal between arms
+programmatically before any comparison is reported.
+
+\begin{table}[htbp]
+\centering
+\caption{Pruned vs.\ dense LoRA fine-tuning, Llama-2-7B, CNN/DailyMail (test, $N=3{,}000$; ppl on full 11{,}490-example test split).}
+\label{tab:cnndailymail}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+arm & params & ppl & rouge-1 & rouge-2 & rouge-L \\
+\midrule
+dense, zero-shot      & 6{,}738{,}415{,}616 & 3.750 & 20.53 & 8.74  & 13.78 \\
+dense + LoRA           & 6{,}738{,}415{,}616 & \textbf{2.774} & 34.41 & 14.90 & \textbf{22.99} \\
+pruned, surgery only  & 4{,}948{,}201{,}472 & 3.126 & 33.45 & 14.16 & 22.27 \\
+pruned + LoRA           & 4{,}948{,}201{,}472 & 2.979 & 34.31 & 14.93 & 22.93 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Result.} Pruned+LoRA reaches rouge-L 22.93 against dense+LoRA's
+22.99 --- a 0.06-point gap, well inside plausible noise. Perplexity does not
+tell the same story: dense+LoRA reaches 2.774 against pruned+LoRA's 2.979, a
+real 0.205-point gap that holds at every intermediate checkpoint we logged
+(steps 250/500/750/1000/1122), with dense already ahead of pruned's final
+value by its own step-500 checkpoint.
+
+This directly answers the motivating question, and against the
+pruning-helps reading: \textbf{the apparent pruned-beats-dense pattern was
+fine-tuning, not sparsity.} The dense arm moves rouge-L from 13.78 to 22.99
+(+9.21pp) on LoRA alone, with no pruning anywhere in that arm; the pruned
+arm reaches essentially the same place. What survives is a compression
+claim, not a specialization claim: a model with 26.6\% fewer parameters
+matches fine-tuned dense quality on rouge-L, at a real but modest perplexity
+cost. We did not attempt to characterize where this trade-off holds across
+other sparsity levels, only that it holds at this one.
+
+\paragraph{Caveats.} We report several limitations of this comparison
+explicitly rather than let the table's precision overstate its rigor. (1)
+\emph{No confidence interval}: per-example score pairs were not retained, so
+the 0.06pp rouge-L gap is a bare point estimate over 3{,}000 examples, not a
+statistically separated result --- we cannot rule out that the true gap is
+larger in either direction. (2) \emph{Single seed, single sparsity level}
+($\lambda=0.3$): we do not know whether iso-quality parity holds at other
+pruning ratios. (3) \emph{Non-converged pruner}: the pruning checkpoint
+underlying both pruned arms never fully converged in training
+(\S\ref{sec:convergence}'s block-mean flatness check did not fire before a
+fixed step cap), an inherited caveat from the motivating run. (4)
+\emph{Weak zero-shot baseline, unverified}: the dense zero-shot rouge-L
+(13.78) is low for a non-instruction-tuned model completing a bare prompt;
+we did not independently verify this isn't itself an artifact of prompt
+formatting, though this affects our reading of the \emph{motivating} result
+only, not the matched-control table, since both LoRA arms start from and are
+scored under identical conditions. (5) \emph{Sample-size correction}: the
+earlier motivating run's rouge-L numbers used a 300-example evaluation
+prefix rather than this section's 3{,}000; we subsequently found the smaller
+sample understates pruned-model rouge-L specifically by roughly 3 percentage
+points while leaving dense-model scores essentially unchanged, meaning the
+motivating run's headline gap was, if anything, under- rather than
+over-stated --- the matched-control table above is unaffected, since it
+always used $N=3{,}000$ for every arm.
+
+This section's scope is deliberately narrow: it shows pruning-then-fine-tune
+is a viable path to a smaller, task-adapted model at (here) no measurable
+rouge-L cost, not that pruning improves anything, and not that this
+trade-off generalizes beyond the one operating point tested.
+
 \section{Discussion and Limitations}
 \label{sec:discussion}
 
@@ -717,7 +819,10 @@ accuracy-for-sparsity trade, characterized via Pareto curves and an
 efficiency metric. It is not a fine-tuning technique, and at no point do we
 claim pruning improves the base model's capability. We state this plainly
 here because \S\ref{sec:opt125m} and \S\ref{sec:cautionary-tale} report numbers that could otherwise be
-misread as such a claim.
+misread as such a claim. \S\ref{sec:cnndailymail} is a deliberate, narrowly-scoped
+exception where the base model \emph{is} fine-tuned after pruning; we keep
+its claim (iso-quality compression, not improved capability) explicitly
+separate from the rest of the paper.
 
 \subsection{A cautionary tale, not a result}
 \label{sec:cautionary-tale}
